@@ -137,5 +137,5 @@ jobs:
           echo "Creating or updating GitHub Release for tag $TAG_NAME..."
           gh release create "$TAG_NAME" combined/*.dusk \
             --title "Twilit Essentials $TAG_NAME" \
-            --generate-notes \
-            --clobber
+            --generate-notes || \
+          gh release upload "$TAG_NAME" combined/*.dusk --clobber
