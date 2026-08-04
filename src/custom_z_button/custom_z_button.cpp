@@ -348,10 +348,10 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
     f32 offsetY = (baseSize - h) * 0.5f - 10;
 
     if (draw != nullptr) {
-        *reinterpret_cast<f32*>(reinterpret_cast<uintptr_t>(draw) + 0x6AC + 2 * sizeof(f32)) = offsetX;
-        *reinterpret_cast<f32*>(reinterpret_cast<uintptr_t>(draw) + 0x6B8 + 2 * sizeof(f32)) = offsetY;
-        *reinterpret_cast<f32*>(reinterpret_cast<uintptr_t>(draw) + 0x6C4 + 2 * sizeof(f32)) = w;
-        *reinterpret_cast<f32*>(reinterpret_cast<uintptr_t>(draw) + 0x6D0 + 2 * sizeof(f32)) = h;
+        draw->field_0x6ac[2] = offsetX;
+        draw->field_0x6b8[2] = offsetY;
+        draw->field_0x6c4[2] = w;
+        draw->field_0x6d0[2] = h;
 
         J2DPane* midnaPane = draw->getMainScreenPtr()->search(MULTI_CHAR('midona_n'));
         J2DPane* jujiPane = draw->getMainScreenPtr()->search(MULTI_CHAR('juji_n'));
