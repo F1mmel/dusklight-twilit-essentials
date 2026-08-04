@@ -8,7 +8,6 @@ A collection of gameplay enhancements, visual improvements, and combat refinemen
 
 ### Enemy & Boss Health Bars
 * **Enemy HP Bars:** Displays health bars above active hostile enemies with distance fading.
-* **Boss Bar:** A top-center health bar for Minibosses and Bosses featuring enemy titles , HP display, and dynamic health color gradients.
 
 ### Floating 3D Damage Numbers
 * **Real-time Damage Popups:** Animated floating numbers pop up in 3D world space whenever Link hits an enemy.
@@ -20,6 +19,10 @@ A collection of gameplay enhancements, visual improvements, and combat refinemen
 ### Custom Z Button & D-Pad Midna Call
 * **Z-Button Item Assignment:** Assign inventory items to the Z button and digit overlays for ammo or oil counts.
 * **D-Pad Midna Call:** Moves Midna's call trigger to D-Pad Left.
+
+### D-Pad Down Horse Call
+* **Quick Epona Call:** Call Epona instantly via D-Pad Down with a custom HUD icon overlay.
+* **Unlock Modes:** Configure to trigger only when the Horse Call item is unlocked in inventory or allow anytime.
 
 ### In-Game Configuration Panel
 All features can be toggled individually in real time through the Dusklight in-game Mod Manager menu.
