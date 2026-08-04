@@ -46,3 +46,16 @@ if (WIN32 AND EXISTS "$ENV{APPDATA}")
             COMMENT "Copying dusklight_twilit_essentials.dusk to ${DUSKLIGHT_USER_MODS_DIR}"
     )
 endif ()
+
+# Automatically copy the built .dusk archive to the user mods directory after every build (Linux only)
+if (UNIX AND NOT APPLE)
+    set(DUSKLIGHT_USER_MODS_DIR "$ENV{HOME}/.local/share/TwilitRealm/Dusklight/mods")
+
+    add_custom_command(TARGET dusklight_twilit_essentials_package POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${DUSKLIGHT_USER_MODS_DIR}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${CMAKE_BINARY_DIR}/mods/dusklight_twilit_essentials.dusk"
+                    "${DUSKLIGHT_USER_MODS_DIR}/dusklight_twilit_essentials.dusk"
+            COMMENT "Copying dusklight_twilit_essentials.dusk to ${DUSKLIGHT_USER_MODS_DIR}"
+    )
+endif ()
