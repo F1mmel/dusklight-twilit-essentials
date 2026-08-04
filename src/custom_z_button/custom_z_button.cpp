@@ -479,12 +479,14 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
 
                     JSUTreeIterator<J2DPane> it(midnaPane->getFirstChild());
                     while (it != midnaPane->getEndChild()) {
-                        if (!visible) {
-                            it->hide();
-                        } else {
-                            it->show();
+                        if (it.getObject() != nullptr) {
+                            if (!visible) {
+                                it->hide();
+                            } else {
+                                it->show();
+                            }
+                            it->setAlpha(crossAlpha);
                         }
-                        it->setAlpha(crossAlpha);
                         ++it;
                     }
                 }
@@ -1691,26 +1693,33 @@ void shutdown_custom_z_button() {
     g_drawHIO.mEmpButton.mMidnaIconPosX = 0.0f;
     g_drawHIO.mEmpButton.mMidnaIconPosY = 0.0f;
     g_drawHIO.mEmpButton.mMidnaIconScale = 1.0f;
-    dMeter2Draw_c* draw = nullptr;
-    if (g_meter2_info.getMeterClass() != nullptr) {
-        draw = g_meter2_info.getMeterClass()->getMeterDrawPtr();
-    }
-    if (draw != nullptr && draw->getMainScreenPtr() != nullptr) {
-        J2DScreen* screen = draw->getMainScreenPtr();
-        J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
-        J2DPane* contPane = screen->search(MULTI_CHAR('cont_n'));
-        if (midnaPane != nullptr) {
-            if (contPane != nullptr && midnaPane->getParentPane() != contPane) {
-                contPane->appendChild(midnaPane);
-            }
-            midnaPane->translate(-88.0f, -24.5f);
-            midnaPane->show();
-            midnaPane->setAlpha(255);
-            JSUTreeIterator<J2DPane> it(midnaPane->getFirstChild());
-            while (it != midnaPane->getEndChild()) {
-                it->show();
-                it->setAlpha(255);
-                ++it;
+    
+    if (!isTitleOrMainMenu()) {
+        dMeter2Draw_c* draw = nullptr;
+        if (g_meter2_info.getMeterClass() != nullptr) {
+            draw = g_meter2_info.getMeterClass()->getMeterDrawPtr();
+        }
+        if (draw != nullptr && draw->getMainScreenPtr() != nullptr) {
+            J2DScreen* screen = draw->getMainScreenPtr();
+            if (screen != nullptr) {
+                J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
+                J2DPane* contPane = screen->search(MULTI_CHAR('cont_n'));
+                if (midnaPane != nullptr) {
+                    if (contPane != nullptr && midnaPane->getParentPane() != nullptr && midnaPane->getParentPane() != contPane) {
+                        contPane->appendChild(midnaPane);
+                    }
+                    midnaPane->translate(-88.0f, -24.5f);
+                    midnaPane->show();
+                    midnaPane->setAlpha(255);
+                    JSUTreeIterator<J2DPane> it(midnaPane->getFirstChild());
+                    while (it != midnaPane->getEndChild()) {
+                        if (it.getObject() != nullptr) {
+                            it->show();
+                            it->setAlpha(255);
+                        }
+                        ++it;
+                    }
+                }
             }
         }
     }
