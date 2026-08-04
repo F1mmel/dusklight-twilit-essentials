@@ -4,6 +4,8 @@
 #include <windows.h>
 #include <wininet.h>
 #pragma comment(lib, "wininet.lib")
+#elif defined(__APPLE__)
+#include <TargetConditionals.h>
 #endif
 
 #include <string>
@@ -76,6 +78,8 @@ static std::string http_get(const std::string& url) {
         InternetCloseHandle(hConnect);
     }
     InternetCloseHandle(hInternet);
+#elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
+    (void)url;
 #else
     std::string cmd = "curl -s -L -H \"User-Agent: TwilitEssentialsModUpdater\" -H \"Accept: application/vnd.github.v3+json\" \"" + url + "\"";
     FILE* fp = popen(cmd.c_str(), "r");
@@ -138,6 +142,10 @@ static bool download_file(const std::string& url, const std::string& destPath) {
     InternetCloseHandle(hConnect);
     InternetCloseHandle(hInternet);
     return success;
+#elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
+    (void)url;
+    (void)destPath;
+    return false;
 #else
     std::string cmd = "curl -s -L -H \"User-Agent: TwilitEssentialsModUpdater\" -o \"" + destPath + "\" \"" + url + "\"";
     int ret = std::system(cmd.c_str());
