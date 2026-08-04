@@ -2,6 +2,7 @@
 #include "visible_equipment/visible_equipment.hpp"
 #include "damage_numbers/damage_numbers.hpp"
 #include "custom_z_button/custom_z_button.hpp"
+#include "horse_call/horse_call.hpp"
 
 #include "mods/hook.hpp"
 #include "mods/service.hpp"
@@ -9,6 +10,8 @@
 #include "mods/svc/log.h"
 #include "mods/svc/config.h"
 #include "mods/svc/ui.h"
+#include "mods/svc/resource.h"
+#include "mods/svc/texture.h"
 
 #include "d/actor/d_a_title.h"
 #include "m_Do/m_Do_ext.h"
@@ -92,6 +95,8 @@ IMPORT_SERVICE(LogService, svc_log);
 IMPORT_SERVICE(HookService, svc_hook);
 IMPORT_OPTIONAL_SERVICE(ConfigService, svc_config);
 IMPORT_OPTIONAL_SERVICE(UiService, svc_ui);
+IMPORT_OPTIONAL_SERVICE(ResourceService, svc_resource);
+IMPORT_OPTIONAL_SERVICE(TextureService, svc_texture);
 
 // Retain all metadata records so MSVC cl.exe does not eliminate them
 extern "C" MOD_EXPORT const void* const g_keep_mod_records[] = {
@@ -100,6 +105,8 @@ extern "C" MOD_EXPORT const void* const g_keep_mod_records[] = {
     &mod_meta_import_svc_hook,
     &mod_meta_import_svc_config,
     &mod_meta_import_svc_ui,
+    &mod_meta_import_svc_resource,
+    &mod_meta_import_svc_texture,
 };
 
 static ConfigVarHandle s_varHpBars = 0;
@@ -109,6 +116,8 @@ static ConfigVarHandle s_varVisibleEquipMode = 0;
 static ConfigVarHandle s_varVisibleEquipMirrorBow = 0;
 static ConfigVarHandle s_varDamageNumbers = 0;
 static ConfigVarHandle s_varCustomZButton = 0;
+static ConfigVarHandle s_varDpadHorseCall = 0;
+static ConfigVarHandle s_varDpadHorseCallAllowAnytime = 0;
 
 static void on_hp_bars_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
     if (value) {
@@ -149,6 +158,18 @@ static void on_damage_numbers_changed(ModContext*, ConfigVarHandle, const Config
 static void on_custom_z_button_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
     if (value) {
         g_configCustomZButtonEnabled = value->bool_value;
+    }
+}
+
+static void on_dpad_horse_call_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
+    if (value) {
+        g_configDpadHorseCallEnabled = value->bool_value;
+    }
+}
+
+static void on_dpad_horse_call_allow_anytime_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
+    if (value) {
+        g_configDpadHorseCallAllowAnytime = value->bool_value;
     }
 }
 
@@ -237,6 +258,29 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
         svc_ui->pane_add_control(mod_ctx, panel, &ctrlZ, nullptr);
     }
 
+    // --- Section 5: D-Pad Horse Call (Epona) ---
+    svc_ui->pane_add_section(mod_ctx, panel, "Horse Call (D-Pad Down)");
+    svc_ui->pane_add_text(mod_ctx, panel, "Allows summoning Epona by pressing D-Pad Down (requires Horse Call in inventory).", nullptr);
+    if (s_varDpadHorseCall != 0) {
+        UiControlDesc ctrlHorse = UI_CONTROL_DESC_INIT;
+        ctrlHorse.kind = UI_CONTROL_TOGGLE;
+        ctrlHorse.label = "Status";
+        ctrlHorse.help_rml = "Toggle D-Pad Down Epona call.";
+        ctrlHorse.binding = UI_BINDING_CONFIG_VAR;
+        ctrlHorse.config_var = s_varDpadHorseCall;
+        svc_ui->pane_add_control(mod_ctx, panel, &ctrlHorse, nullptr);
+    }
+
+    if (s_varDpadHorseCallAllowAnytime != 0) {
+        UiControlDesc ctrlHorseAnytime = UI_CONTROL_DESC_INIT;
+        ctrlHorseAnytime.kind = UI_CONTROL_TOGGLE;
+        ctrlHorseAnytime.label = "Allow Anytime (Without Item)";
+        ctrlHorseAnytime.help_rml = "Off: Requires having the Horse Call item in inventory.\nOn: Allows calling Epona anytime without needing the Horse Call item.";
+        ctrlHorseAnytime.binding = UI_BINDING_CONFIG_VAR;
+        ctrlHorseAnytime.config_var = s_varDpadHorseCallAllowAnytime;
+        svc_ui->pane_add_control(mod_ctx, panel, &ctrlHorseAnytime, nullptr);
+    }
+
     return MOD_OK;
 }
 
@@ -313,6 +357,24 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
             svc_config->get_bool(mod_ctx, s_varCustomZButton, &g_configCustomZButtonEnabled);
             svc_config->subscribe(mod_ctx, s_varCustomZButton, on_custom_z_button_changed, nullptr, nullptr);
         }
+
+        ConfigVarDesc descHorse = CONFIG_VAR_DESC_INIT;
+        descHorse.name = "dpadHorseCallEnabled";
+        descHorse.type = CONFIG_VAR_BOOL;
+        descHorse.default_bool = false;
+        if (svc_config->register_var(mod_ctx, &descHorse, &s_varDpadHorseCall) == MOD_OK) {
+            svc_config->get_bool(mod_ctx, s_varDpadHorseCall, &g_configDpadHorseCallEnabled);
+            svc_config->subscribe(mod_ctx, s_varDpadHorseCall, on_dpad_horse_call_changed, nullptr, nullptr);
+        }
+
+        ConfigVarDesc descHorseAnytime = CONFIG_VAR_DESC_INIT;
+        descHorseAnytime.name = "dpadHorseCallAllowAnytime";
+        descHorseAnytime.type = CONFIG_VAR_BOOL;
+        descHorseAnytime.default_bool = false;
+        if (svc_config->register_var(mod_ctx, &descHorseAnytime, &s_varDpadHorseCallAllowAnytime) == MOD_OK) {
+            svc_config->get_bool(mod_ctx, s_varDpadHorseCallAllowAnytime, &g_configDpadHorseCallAllowAnytime);
+            svc_config->subscribe(mod_ctx, s_varDpadHorseCallAllowAnytime, on_dpad_horse_call_allow_anytime_changed, nullptr, nullptr);
+        }
     }
 
     if (svc_ui) {
@@ -334,6 +396,7 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     init_damage_numbers(svc_hook, error);
     init_visible_equipment(svc_hook, error);
     init_custom_z_button(svc_hook, error);
+    init_horse_call(svc_hook, error);
 
     if (svc_log) svc_log->info(mod_ctx, "dusklight_twilit_essentials main dispatcher initialized successfully");
     return MOD_OK;
@@ -343,6 +406,7 @@ MOD_EXPORT ModResult mod_update(ModError*) {
     update_damage_numbers(svc_log, mod_ctx);
     update_visible_equipment(svc_log, mod_ctx);
     update_custom_z_button(svc_log, mod_ctx);
+    update_horse_call(svc_log, mod_ctx);
     return MOD_OK;
 }
 
@@ -351,6 +415,15 @@ MOD_EXPORT ModResult mod_shutdown(ModError*) {
     shutdown_damage_numbers();
     shutdown_visible_equipment();
     shutdown_custom_z_button();
+    shutdown_horse_call();
     return MOD_OK;
 }
+}
+
+const ResourceService* get_resource_service() {
+    return svc_resource;
+}
+
+const TextureService* get_texture_service() {
+    return svc_texture;
 }

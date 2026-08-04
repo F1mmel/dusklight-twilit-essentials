@@ -433,28 +433,6 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
         draw->field_0x6d0[2] = h;
 
         J2DPane* midnaPane = draw->getMainScreenPtr()->search(MULTI_CHAR('midona_n'));
-        J2DPane* jujiPane = draw->getMainScreenPtr()->search(MULTI_CHAR('juji_n'));
-        if (jujiPane != nullptr) {
-            f32 jujiY = jujiPane->getTranslateY();
-            if (jujiY != 0.0f) {
-
-            }
-
-    static u32 s_diagTimer = 0;
-    if (++s_diagTimer % 60 == 0 && s_logSvc && s_modCtx) {
-        J2DScreen* scr = draw ? draw->getMainScreenPtr() : nullptr;
-        JUTTexture* tex = mainPic ? mainPic->getTexture(0) : nullptr;
-        const ResTIMG* texInfo = tex ? tex->getTexInfo() : nullptr;
-
-        char buf[512];
-        std::snprintf(buf, sizeof(buf),
-            "[ZButtonDiag f=%u] draw=%p scr=%p slot=%d zItem=0x%02X lastLoaded=0x%02X itemR=%p pane=%p (vis=%d alpha=%d parent=%p) mainPic=%p tex=%p texInfo=%p buf0=%p buf1=%p idx=%d",
-            s_diagTimer, draw, scr, (int)s_zInventorySlot, zItem, s_lastLoadedZItem,
-            itemR, pane, pane ? pane->isVisible() : -1, pane ? pane->getAlpha() : -1, pane ? pane->getParentPane() : nullptr,
-            mainPic, tex, texInfo, s_zTexBufMain[0], s_zTexBufMain[1], (int)s_zTexBufIdx);
-        s_logSvc->info(s_modCtx, buf);
-    }
-        }
         if (midnaPane != nullptr) {
             midnaPane->show();
             midnaPane->setAlpha(255);

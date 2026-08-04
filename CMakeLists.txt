@@ -12,10 +12,6 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchDusklight.cmake")
 add_subdirectory("${DUSKLIGHT_DIR}/sdk" dusklight-sdk EXCLUDE_FROM_ALL)
 
 # Automatically copy textures directory into res/textures so they get packaged into .dusk
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/textures")
-    file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/textures/" DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/res/textures")
-endif ()
-
 add_mod(dusklight_twilit_essentials
         FEATURES game
         SOURCES 
@@ -24,6 +20,7 @@ add_mod(dusklight_twilit_essentials
             src/visible_equipment/visible_equipment.cpp
             src/damage_numbers/damage_numbers.cpp
             src/custom_z_button/custom_z_button.cpp
+            src/horse_call/horse_call.cpp
         MOD_JSON mod.json
         RES_DIR res
         OVERLAY_DIR overlay
