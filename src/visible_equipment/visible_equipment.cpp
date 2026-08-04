@@ -250,6 +250,17 @@ static int visibleLanternJointCallback(J3DJoint* i_joint, int param_1) {
         return 1;
     }
 
+    J3DModel* currentModel = j3dSys.getModel();
+    if (currentModel != s_customLanternModel) {
+        if (currentModel != nullptr) {
+            daAlink_c* player_p = reinterpret_cast<daAlink_c*>(currentModel->getUserArea());
+            if (player_p != nullptr) {
+                player_p->kandelaarModelCallBack();
+            }
+        }
+        return 1;
+    }
+
     // Get pivot position from current joint matrix
     cXyz pivotPos;
     mDoMtx_multVecZero(J3DSys::mCurrentMtx, &pivotPos);
@@ -313,7 +324,6 @@ static void renderLantern(daAlink_c* alink) {
     if (modelData == nullptr || modelData->getJointNum() <= 0x10) {
         return;
     }
-
     MtxP beltMtx = alink->mpLinkModel->getAnmMtx(0x10);
     if (beltMtx != nullptr) {
         mDoMtx_stack_c::copy(beltMtx);
@@ -334,6 +344,9 @@ static void renderLantern(daAlink_c* alink) {
             s_veLanternCallbackRegistered = true;
         }
 
+        // For valid pointer
+        s_customLanternModel->setUserArea(reinterpret_cast<uintptr_t>(alink));
+        
         s_customLanternModel->calc();
 
         g_env_light.settingTevStruct_colget_player(&alink->tevStr);
@@ -508,7 +521,7 @@ static void on_alink_draw_post(ModContext*, void*, void*, void*) {
     }
 
     daAlink_c* alink = static_cast<daAlink_c*>(dComIfGp_getPlayer(0));
-    if (!alink || !alink->mpLinkModel || isWolfOrTransforming(alink)) {
+    if (!alink || !alink->mpLinkModel || alink->mpLinkModel->getModelData() == nullptr || isWolfOrTransforming(alink)) {
         return;
     }
 

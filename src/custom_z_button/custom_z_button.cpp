@@ -282,6 +282,13 @@ static bool isWolfPlayer() {
     return false;
 }
 
+static bool isMidnaUnlocked() {
+    if (isWolfPlayer()) {
+        return true;
+    }
+    return dComIfGs_getTransformStatus() != 0;
+}
+
 static bool is_pause_menu_open(dMeter2Draw_c* draw = nullptr) {
     u8 winStatus = g_meter2_info.getWindowStatus();
     // windowStatus 2 is the Item Wheel / Ring Menu (where Z item MUST stay visible)
@@ -328,7 +335,7 @@ static void update_midna_pane(dMeter2Draw_c* draw) {
     J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
     if (midnaPane == nullptr) return;
 
-    if (is_pause_menu_open(draw)) {
+    if (is_pause_menu_open(draw) || !isMidnaUnlocked()) {
         midnaPane->hide();
     } else {
         J2DPane* juji = screen->search(MULTI_CHAR('juji_n'));
@@ -806,7 +813,7 @@ static HookAction on_set_select_item_index_pre(ModContext*, void* args, void*, v
 }
 
 static HookAction on_midna_talk_trigger_pre(ModContext*, void* args, void* ret, void*) {
-    if (!g_configCustomZButtonEnabled || !args || !ret) {
+    if (!g_configCustomZButtonEnabled || !args || !ret || !isMidnaUnlocked()) {
         return HOOK_CONTINUE;
     }
 
