@@ -38,7 +38,7 @@ static HookAction on_title_draw_pre(ModContext*, void* args, void*, void*) {
             MULTI_CHAR('m_mshd'),
             shadowBox,
             resFont,
-            "Twilit Essentials v1.0.0",
+            "Twilit Essentials v1.0.1",
             64,
             HBIND_CENTER,
             VBIND_CENTER
@@ -56,7 +56,7 @@ static HookAction on_title_draw_pre(ModContext*, void* args, void*, void*) {
             MULTI_CHAR('m_mod'),
             box,
             resFont,
-            "Twilit Essentials v1.0.0",
+            "Twilit Essentials v1.0.1",
             64,
             HBIND_CENTER,
             VBIND_CENTER
