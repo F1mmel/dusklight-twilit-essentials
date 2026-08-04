@@ -319,6 +319,50 @@ static inline void safe_pane_trans(CPaneMgr* p, f32 x, f32 y)  { if (pane_is_rea
 static inline void safe_pane_alpha_rate(CPaneMgr* p, f32 a)    { if (pane_is_ready(p)) p->setAlphaRate(a); }
 static inline void safe_pane_alpha(CPaneMgr* p, u8 a)          { if (pane_is_ready(p)) p->setAlpha(a); }
 
+static void update_midna_pane(dMeter2Draw_c* draw) {
+    if (draw == nullptr) return;
+    J2DScreen* screen = draw->getMainScreenPtr();
+    if (screen == nullptr) return;
+
+    J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
+    if (midnaPane == nullptr) return;
+
+    if (is_pause_menu_open(draw)) {
+        midnaPane->hide();
+    } else {
+        J2DPane* juji = screen->search(MULTI_CHAR('juji_n'));
+        if (midnaPane != nullptr && juji != nullptr) {
+            if (midnaPane->getParentPane() != juji) {
+                juji->appendChild(midnaPane);
+                set_pane_influenced_alpha_recursive(midnaPane, true);
+            }
+            midnaPane->move(-18.0f, 0.0f);
+
+            u8 crossAlpha = juji->getAlpha();
+            bool visible = juji->isVisible() && crossAlpha > 0;
+            midnaPane->setAlpha(crossAlpha);
+            if (!visible) {
+                midnaPane->hide();
+            } else {
+                midnaPane->show();
+            }
+
+            JSUTreeIterator<J2DPane> it(midnaPane->getFirstChild());
+            while (it != midnaPane->getEndChild()) {
+                if (it.getObject() != nullptr) {
+                    if (!visible) {
+                        it->hide();
+                    } else {
+                        it->show();
+                    }
+                    it->setAlpha(crossAlpha);
+                }
+                ++it;
+            }
+        }
+    }
+}
+
 static void update_z_item_texture(dMeter2Draw_c* draw) {
     if (draw == nullptr) {
         if (g_meter2_info.getMeterClass() != nullptr) {
@@ -329,6 +373,8 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
     if (draw == nullptr || isTitleOrMainMenu()) {
         return;
     }
+
+    update_midna_pane(draw);
 
     CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
     if (isWolfPlayer() || is_pause_menu_open(draw)) {
@@ -451,47 +497,7 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
         draw->field_0x6c4[2] = w;
         draw->field_0x6d0[2] = h;
 
-        // Move midna pane to cross section safely
-        J2DScreen* screen = draw->getMainScreenPtr();
-        if (screen != nullptr) {
-            J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
-            if (is_pause_menu_open(draw)) {
-                if (midnaPane != nullptr) {
-                    midnaPane->hide();
-                }
-            } else {
-                J2DPane* juji = screen->search(MULTI_CHAR('juji_n'));
-                if (midnaPane != nullptr && juji != nullptr) {
-                    if (midnaPane->getParentPane() != juji) {
-                        juji->appendChild(midnaPane);
-                        set_pane_influenced_alpha_recursive(midnaPane, true);
-                    }
-                    midnaPane->move(-18.0f, 0.0f);
-
-                    u8 crossAlpha = juji->getAlpha();
-                    bool visible = juji->isVisible() && crossAlpha > 0;
-                    midnaPane->setAlpha(crossAlpha);
-                    if (!visible) {
-                        midnaPane->hide();
-                    } else {
-                        midnaPane->show();
-                    }
-
-                    JSUTreeIterator<J2DPane> it(midnaPane->getFirstChild());
-                    while (it != midnaPane->getEndChild()) {
-                        if (it.getObject() != nullptr) {
-                            if (!visible) {
-                                it->hide();
-                            } else {
-                                it->show();
-                            }
-                            it->setAlpha(crossAlpha);
-                        }
-                        ++it;
-                    }
-                }
-            }
-        }
+        update_midna_pane(draw);
     }
 
     safe_pane_resize(itemR, w, h);
@@ -600,6 +606,7 @@ static void on_draw_button_z_post(ModContext*, void* args, void*, void*) {
     }
 
     init_z_hud_nodes(draw);
+    update_midna_pane(draw);
 
     if (isWolfPlayer()) {
         CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
@@ -1019,17 +1026,19 @@ static void on_pad_read_post(ModContext*, void*, void*, void*) {
     pad.mButtonFlags &= ~PAD_TRIGGER_Z;
     pad.mPressedButtonFlags &= ~PAD_TRIGGER_Z;
 
-    // Re-inject Z only when physical R1 is pressed during gameplay
-    if (!isMenuOrPause && !s_dpadLeftHeld && !s_dpadLeftTrig && (physZHeld || physZTrig)) {
-        if (physZHeld) pad.mButtonFlags |= PAD_TRIGGER_Z;
-        if (physZTrig) pad.mPressedButtonFlags |= PAD_TRIGGER_Z;
+    // Re-inject Z when either D-Pad Left or physical Z/R1 is held or triggered
+    if (!isMenuOrPause && (s_dpadLeftHeld || s_dpadLeftTrig || physZHeld || physZTrig)) {
+        if (s_dpadLeftHeld || physZHeld) pad.mButtonFlags |= PAD_TRIGGER_Z;
+        if (s_dpadLeftTrig || physZTrig) pad.mPressedButtonFlags |= PAD_TRIGGER_Z;
 
-        if (s_zInventorySlot != 0xFF) {
+        if (!isWolfPlayer() && s_zInventorySlot != 0xFF) {
             u8 zItem = dComIfGs_getItem(s_zInventorySlot, false);
             if (zItem != 0xFF && zItem != 0x00 && zItem != dItemNo_NONE_e && zItem != 0x72) {
                 daAlink_c* alink = static_cast<daAlink_c*>(daPy_getLinkPlayerActorClass());
                 if (alink != nullptr && !alink->checkWolf() && dComIfGs_getLife() > 0) {
-                    alink->mSelectItemId = 2;
+                    if (physZHeld || physZTrig) {
+                        alink->mSelectItemId = 2;
+                    }
 
                     if (physZTrig && s_logSvc && s_modCtx) {
                         char buf[256];
@@ -1188,9 +1197,9 @@ static void on_meter2_execute_post(ModContext*, void*, void*, void*) {
         return;
     }
     g_meter2_info.onUseButton(0x800);
-    if (!isWolfPlayer()) {
+    //if (!isWolfPlayer()) {
         update_z_item_texture();
-    }
+    //}
 }
 
 static HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, void*, void*) {
