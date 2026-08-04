@@ -6,6 +6,9 @@ on:
     tags: ["*"]
   pull_request:
 
+permissions:
+  contents: write
+
 env:
   SYMGEN_VERSION: v1.2.4
 
@@ -124,8 +127,15 @@ jobs:
           path: combined/*.dusk
           if-no-files-found: error
 
-      - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Create or update Release from mod.json version
+        if: github.ref_name == 'main' || startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{github.token}}
-        run: gh release create "$GITHUB_REF_NAME" combined/*.dusk --verify-tag --generate-notes
+        run: |
+          MOD_VERSION=$(python3 -c "import json; print(json.load(open('mod.json'))['version'])")
+          TAG_NAME="v${MOD_VERSION}"
+          echo "Creating or updating GitHub Release for tag $TAG_NAME..."
+          gh release create "$TAG_NAME" combined/*.dusk \
+            --title "Twilit Essentials $TAG_NAME" \
+            --generate-notes \
+            --clobber
