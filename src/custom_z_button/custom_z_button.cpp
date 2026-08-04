@@ -7,6 +7,7 @@
 #include "d/d_meter_HIO.h"
 #include "d/d_meter2_info.h"
 #include "d/d_meter2.h"
+#include "d/d_msg_object.h"
 #define private public
 #include "d/d_meter2_draw.h"
 #include "d/d_meter_button.h"
@@ -999,7 +1000,9 @@ static void on_pad_read_post(ModContext*, void*, void*, void*) {
     interface_of_controller_pad& pad = mDoCPd_c::getCpadInfo(PAD_1);
 
     u8 windowStatus = dMeter2Info_getWindowStatus();
-    bool isMenuOrPause = (windowStatus != 0) || dComIfGp_isPauseFlag() || dScnPly_c::isPause();
+    bool isMenuOrPause = (windowStatus != 0) || dComIfGp_isPauseFlag() || dScnPly_c::isPause()
+                         || dComIfGp_event_runCheck() || dMeter2Info_isShopTalkFlag()
+                         || dMsgObject_isTalkNowCheck();
 
     if (isMenuOrPause) {
         // In menus D-Pad Left works normally for UI navigation
