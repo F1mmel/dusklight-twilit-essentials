@@ -1225,53 +1225,6 @@ static HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, v
                 if (midnaPane != nullptr) midnaPane->hide();
                 return HOOK_CONTINUE;
             }
-            //J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
-            //J2DPane* jujiPane = screen->search(MULTI_CHAR('juji_n'));
-
-            /*if (jujiPane != nullptr) {
-                f32 jujiY = jujiPane->getGlbBounds().i.y - 5.0f;
-
-                // Larger minimap needs a bit more offset
-                if (dMeter2Info_getMapStatus() == 1) {
-                    jujiY -= 5.0f;
-                }
-
-                g_drawHIO.mMidnaIconPosY = jujiY;
-                g_drawHIO.mEmpButton.mMidnaIconPosY = jujiY;
-                if (midnaPane != nullptr) {
-                    midnaPane->translate(midnaPane->getTranslateX(), jujiY);
-                }
-            }*/
-
-            /*u8 crossAlpha = 255;
-            if (jujiPane != nullptr) {
-                crossAlpha = jujiPane->getAlpha();
-            } else {
-                J2DPane* contPane = screen->search(MULTI_CHAR('cont_n'));
-                if (contPane != nullptr) {
-                    crossAlpha = contPane->getAlpha();
-                }
-            }*/
-
-            /*if (midnaPane != nullptr) {
-                midnaPane->setAlpha(crossAlpha);
-                if (crossAlpha == 0) {
-                    midnaPane->hide();
-                } else {
-                    midnaPane->show();
-                }
-
-                JSUTreeIterator<J2DPane> it(midnaPane->getFirstChild());
-                while (it != midnaPane->getEndChild()) {
-                    if (crossAlpha == 0) {
-                        it->hide();
-                    } else {
-                        it->show();
-                    }
-                    it->setAlpha(crossAlpha);
-                    ++it;
-                }
-            }*/
 
             J2DPane* zbtn = screen->search(MULTI_CHAR('zbtn_n'));
             if (zbtn != nullptr) {
@@ -1330,9 +1283,6 @@ static HookAction on_set_button_icon_alpha_pre(ModContext*, void* args, void*, v
     return HOOK_CONTINUE;
 }
 
-// changeTextureItemXY only supports indices 0 (X) and 1 (Y).
-// Calling it with i_no==2 reads mpItemR and mpBTextA via out-of-bounds array access,
-// which corrupts the Z button pane. We skip the original and handle it ourselves.
 static HookAction on_change_texture_item_xy_pre(ModContext*, void* args, void*, void*) {
     if (!args) {
         return HOOK_CONTINUE;
@@ -1734,7 +1684,6 @@ void shutdown_custom_z_button() {
     s_dpadLeftTrig = false;
 
 
-    // --- g_drawHIO Werte auf Standard zurücksetzen ---
     g_drawHIO.mMidnaIconPosX = 0.0f;
     g_drawHIO.mMidnaIconPosY = 0.0f;
     g_drawHIO.mMidnaIconScale = 1.0f;
