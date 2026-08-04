@@ -1,64 +1,40 @@
-# Dusklight Mod Template
+# Twilit Essentials v1.0.0
 
-A standalone template for [Dusklight](https://github.com/TwilitRealm/dusklight) mods.
+A collection of gameplay enhancements, visual improvements, and combat refinements for *The Legend of Zelda: Twilight Princess* on the [Dusklight](https://github.com/TwilitRealm/dusklight) engine.
 
-See the [Dusklight modding documentation](https://github.com/TwilitRealm/dusklight/blob/main/docs/modding.md)
-for the full mod API: services, hooking game functions, asset overlays, and more.
+---
 
-## Quick start
+## Features
 
-1. Click "Use this template" to create a new repository for your mod.
-2. Edit `mod.json`: set your mod's `id` (reverse-DNS style, e.g. `com.example.my_mod`),
-   `name`, `author`, and `description`.
-3. Rename the target in `CMakeLists.txt` (`add_mod(my_mod ...)`) (this names the `.dusk` file).
-4. Write your mod in `src/mod.cpp`.
-5. Build locally:
-   ```sh
-   cmake -B build
-   cmake --build build
-   ```
+### Enemy & Boss Health Bars
+* **Enemy HP Bars:** Displays health bars above active hostile enemies with distance fading.
+* **Boss Bar:** A top-center health bar for Minibosses and Bosses featuring enemy titles , HP display, and dynamic health color gradients.
 
-The result is `build/mods/<name>.dusk`. Copy it into the game's mods folder to try it:
+### Floating 3D Damage Numbers
+* **Real-time Damage Popups:** Animated floating numbers pop up in 3D world space whenever Link hits an enemy.
 
-- Windows: `%APPDATA%\TwilitRealm\Dusklight\mods`
-- Linux: `~/.local/share/TwilitRealm/Dusklight/mods`
-- macOS: `~/Library/Application Support/TwilitRealm/Dusklight/mods`
+### Visible Equipment on Link's Back
+* **Dynamic Back Rendering:** Link's equipped Bow, Quiver (updates with capacity upgrades), Lantern, and Horse Call render directly on his 3D model.
+* **Display Modes:** Configure equipment to show on Link's back only when assigned to item buttons (X/Y/Z) or permanently once unlocked in the inventory.
 
-During development, rebuild, copy and click **Reload** in the in-game mod manager to pick up changes.
+### Custom Z Button & D-Pad Midna Call
+* **Z-Button Item Assignment:** Assign inventory items to the Z button and digit overlays for ammo or oil counts.
+* **D-Pad Midna Call:** Moves Midna's call trigger to D-Pad Left.
 
-> [!IMPORTANT]
-> A mod built locally will only be valid for your own platform, and shouldn't be distributed.
-> The repository will build a [cross-platform bundle](#github-actions) for distribution. See below.
+### In-Game Configuration Panel
+All features can be toggled individually in real time through the Dusklight in-game Mod Manager menu.
 
-## Updating to a new Dusklight version
+---
 
-Change the `DUSKLIGHT_VERSION` line in `CMakeLists.txt` to the new release tag (or commit hash) and reconfigure. The
-pinned version is fetched into `dusklight/` automatically. Use the `dusklight/` checkout to browse game code, headers
-and mod services.
+## Installation
 
-> [!IMPORTANT]
-> The Dusklight checkout is for **reference only**. Mods use
-> [services](https://github.com/TwilitRealm/dusklight/blob/main/docs/modding.md#built-in-services) and
-> [hooks](https://github.com/TwilitRealm/dusklight/blob/main/docs/modding.md#hooking-game-functions) to interact with
-> game code.
+1. Download `dusklight_twilit_essentials.dusk` from the Releases page.
+2. Move the file into your Dusklight mods directory:
 
-## GitHub Actions
+| OS | Path |
+|---|---|
+| Windows | `%APPDATA%\TwilitRealm\Dusklight\mods` |
+| Linux | `~/.local/share/TwilitRealm/Dusklight/mods` |
+| macOS | `~/Library/Application Support/TwilitRealm/Dusklight/mods` |
 
-The included GitHub Actions workflow builds the mod for the following platforms:
-- Windows (AMD64 & ARM64)
-- macOS (Apple Silicon & Intel)
-- iOS (Apple Silicon)
-- Linux (x86_64 & aarch64)
-- Android (aarch64)
-
-It then merges the per-platform builds into a single `.dusk` supporting all platforms. (Artifact `mod-combined`) 
-
-Pushing a tag to the repository creates a GitHub release with the combined bundle.
-
-## For Dusklight developers
-
-Point the build at an existing checkout instead of fetching one:
-
-```sh
-cmake -B build -DDUSKLIGHT_DIR=~/path/to/dusklight
-```
+3. Enable **Twilit Essentials** in the in-game Mod Manager menu.

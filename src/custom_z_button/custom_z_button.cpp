@@ -7,9 +7,11 @@
 #include "d/d_meter_HIO.h"
 #include "d/d_meter2_info.h"
 #include "d/d_meter2.h"
+#define private public
 #include "d/d_meter2_draw.h"
 #include "d/d_meter_button.h"
 #include "d/d_menu_ring.h"
+#undef private
 #include "d/d_pane_class.h"
 #include "d/d_kantera_icon_meter.h"
 #include "d/actor/d_a_alink.h"
@@ -91,22 +93,22 @@ static void sync_z_item_state() {
 }
 
 static u8 get_ring_items_total(dMenu_Ring_c* ring) {
-    return *reinterpret_cast<u8*>(reinterpret_cast<uintptr_t>(ring) + 0x6AE);
+    return ring ? ring->mItemsTotal : 0;
 }
 static u8* get_ring_item_slots(dMenu_Ring_c* ring) {
-    return reinterpret_cast<u8*>(reinterpret_cast<uintptr_t>(ring) + 0x690);
+    return ring ? ring->mItemSlots : nullptr;
 }
 static u8& get_ring_x_button_slot(dMenu_Ring_c* ring) {
-    return *reinterpret_cast<u8*>(reinterpret_cast<uintptr_t>(ring) + 0x6AA);
+    return ring->mXButtonSlot;
 }
 static u8& get_ring_y_button_slot(dMenu_Ring_c* ring) {
-    return *reinterpret_cast<u8*>(reinterpret_cast<uintptr_t>(ring) + 0x6AB);
+    return ring->mYButtonSlot;
 }
 static u8& get_ring_z_button_slot(dMenu_Ring_c* ring) {
-    return *reinterpret_cast<u8*>(reinterpret_cast<uintptr_t>(ring) + 0x6AC);
+    return ring->field_0x6ac;
 }
 static u8* get_ring_field_0x6b4(dMenu_Ring_c* ring) {
-    return reinterpret_cast<u8*>(reinterpret_cast<uintptr_t>(ring) + 0x6B4);
+    return ring->field_0x6b4;
 }
 
 static u8 get_ring_slot_for_item(dMenu_Ring_c* ring, u8 slotOrItem) {
@@ -116,6 +118,7 @@ static u8 get_ring_slot_for_item(dMenu_Ring_c* ring, u8 slotOrItem) {
 
     u8 total = get_ring_items_total(ring);
     u8* slots = get_ring_item_slots(ring);
+    if (!slots) return 0xFF;
     for (int i = 0; i < total; i++) {
         if (slots[i] == targetItem) {
             return (u8)i;
@@ -126,8 +129,24 @@ static u8 get_ring_slot_for_item(dMenu_Ring_c* ring, u8 slotOrItem) {
 
 static u8 get_ring_slide_timer(dMenu_Ring_c* ring, int i_idx) {
     if (!ring) return 0;
-    u8* field_0x674 = reinterpret_cast<u8*>(reinterpret_cast<uintptr_t>(ring) + 0x674);
-    return field_0x674[i_idx];
+    return (u8)ring->field_0x674[i_idx];
+}
+
+static u8 get_ring_current_slot_item(dMenu_Ring_c* ring) {
+    if (!ring) return 0xFF;
+    return ring->mItemSlots[ring->mCurrentSlot];
+}
+
+static void trigger_ring_item_slide_z(dMenu_Ring_c* ring, u8 itemNo) {
+    if (!ring) return;
+    ring->setSelectItem(2, itemNo);
+    u8 currentSlot = ring->mCurrentSlot;
+    ring->field_0x6ac = currentSlot;
+    ring->field_0x518[2] = ring->mItemSlotPosX[currentSlot];
+    ring->field_0x528[2] = ring->mItemSlotPosY[currentSlot];
+    ring->field_0x538[2] = g_ringHIO.mSelectItemScale;
+    ring->field_0x6b4[2] = itemNo;
+    ring->field_0x674[2] = 1;
 }
 
 static void commit_pending_z_slot(dMenu_Ring_c* ring = nullptr) {
@@ -152,10 +171,17 @@ static void commit_pending_z_slot(dMenu_Ring_c* ring = nullptr) {
 
 static void ensure_z_buffers() {
     if (s_zTexBufMain[0] == nullptr) {
+#if defined(_MSC_VER)
         s_zTexBufMain[0] = static_cast<u8*>(_aligned_malloc(0xC00, 32));
         s_zTexBufMain[1] = static_cast<u8*>(_aligned_malloc(0xC00, 32));
         s_zTexBufShine[0] = static_cast<u8*>(_aligned_malloc(0xC00, 32));
         s_zTexBufShine[1] = static_cast<u8*>(_aligned_malloc(0xC00, 32));
+#else
+        s_zTexBufMain[0] = static_cast<u8*>(aligned_alloc(32, 0xC00));
+        s_zTexBufMain[1] = static_cast<u8*>(aligned_alloc(32, 0xC00));
+        s_zTexBufShine[0] = static_cast<u8*>(aligned_alloc(32, 0xC00));
+        s_zTexBufShine[1] = static_cast<u8*>(aligned_alloc(32, 0xC00));
+#endif
     }
 }
 
@@ -322,10 +348,10 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
     f32 offsetY = (baseSize - h) * 0.5f - 10;
 
     if (draw != nullptr) {
-        draw->field_0x6ac[2] = offsetX;
-        draw->field_0x6b8[2] = offsetY;
-        draw->field_0x6c4[2] = w;
-        draw->field_0x6d0[2] = h;
+        *reinterpret_cast<f32*>(reinterpret_cast<uintptr_t>(draw) + 0x6AC + 2 * sizeof(f32)) = offsetX;
+        *reinterpret_cast<f32*>(reinterpret_cast<uintptr_t>(draw) + 0x6B8 + 2 * sizeof(f32)) = offsetY;
+        *reinterpret_cast<f32*>(reinterpret_cast<uintptr_t>(draw) + 0x6C4 + 2 * sizeof(f32)) = w;
+        *reinterpret_cast<f32*>(reinterpret_cast<uintptr_t>(draw) + 0x6D0 + 2 * sizeof(f32)) = h;
 
         J2DPane* midnaPane = draw->getMainScreenPtr()->search(MULTI_CHAR('midona_n'));
         J2DPane* jujiPane = draw->getMainScreenPtr()->search(MULTI_CHAR('juji_n'));
@@ -465,10 +491,8 @@ static void on_draw_button_z_post(ModContext*, void* args, void*, void*) {
         J2DPane* jPane = scr ? scr->search(MULTI_CHAR('juji_n')) : nullptr;
         char buf[256];
         std::snprintf(buf, sizeof(buf),
-            "[CustomZButton TOP LOG] draw=%p screen=%p midona_n=%p juji_n=%p CrossParent=%p Midona=%p",
-            draw, scr, mPane, jPane,
-            draw ? draw->mpButtonCrossParent : nullptr,
-            draw ? draw->mpButtonMidona : nullptr);
+            "[CustomZButton TOP LOG] draw=%p screen=%p midona_n=%p juji_n=%p",
+            draw, scr, mPane, jPane);
         s_logSvc->info(s_modCtx, buf);
     }
 
@@ -953,7 +977,7 @@ static void on_set_active_cursor_post(ModContext*, void* args, void*, void*) {
         return;
     }
 
-    u8 hoveredItemNo = ring->getCurrentSlotItem();
+    u8 hoveredItemNo = get_ring_current_slot_item(ring);
     u8 realSlot = find_slot_for_item(hoveredItemNo);
 
     if (realSlot == 0xFF) {
@@ -981,7 +1005,7 @@ static void on_set_active_cursor_post(ModContext*, void* args, void*, void*) {
         return;
     }
 
-    ring->triggerItemSlideZ(itemNo);
+    trigger_ring_item_slide_z(ring, itemNo);
 
     u8* pField0x6b4 = reinterpret_cast<u8*>(reinterpret_cast<uintptr_t>(ring) + 0x6B4);
     pField0x6b4[2]  = itemNo;
@@ -1020,7 +1044,7 @@ static void on_set_active_cursor_post(ModContext*, void* args, void*, void*) {
     s_zInventorySlot = realSlot;
     sync_z_item_state();
 
-    ring->triggerItemSlideZ(itemNo);
+    trigger_ring_item_slide_z(ring, itemNo);
     update_ring_z_slots(ring);
 
     dMeter2Info_set2DVibrationM();
@@ -1107,8 +1131,11 @@ static HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, v
             u8 crossAlpha = 255;
             if (jujiPane != nullptr) {
                 crossAlpha = jujiPane->getAlpha();
-            } else if (draw->mpButtonCrossParent != nullptr) {
-                crossAlpha = static_cast<u8>(draw->mpButtonCrossParent->getAlphaRate() * 255.0f);
+            } else {
+                J2DPane* contPane = screen->search(MULTI_CHAR('cont_n'));
+                if (contPane != nullptr) {
+                    crossAlpha = contPane->getAlpha();
+                }
             }
 
             if (midnaPane != nullptr) {

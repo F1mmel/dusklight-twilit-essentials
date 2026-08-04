@@ -34,13 +34,15 @@ if (MSVC)
     target_link_options(dusklight_twilit_essentials PRIVATE "/OPT:NOREF")
 endif ()
 
-# Automatically copy the built .dusk archive to the user mods directory after every build
-set(DUSKLIGHT_USER_MODS_DIR "$ENV{APPDATA}/TwilitRealm/Dusklight/mods")
+# Automatically copy the built .dusk archive to the user mods directory after every build (Windows only)
+if (WIN32 AND EXISTS "$ENV{APPDATA}")
+    set(DUSKLIGHT_USER_MODS_DIR "$ENV{APPDATA}/TwilitRealm/Dusklight/mods")
 
-add_custom_command(TARGET dusklight_twilit_essentials_package POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${DUSKLIGHT_USER_MODS_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_BINARY_DIR}/mods/dusklight_twilit_essentials.dusk"
-                "${DUSKLIGHT_USER_MODS_DIR}/dusklight_twilit_essentials.dusk"
-        COMMENT "Copying dusklight_twilit_essentials.dusk to ${DUSKLIGHT_USER_MODS_DIR}"
-)
+    add_custom_command(TARGET dusklight_twilit_essentials_package POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${DUSKLIGHT_USER_MODS_DIR}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${CMAKE_BINARY_DIR}/mods/dusklight_twilit_essentials.dusk"
+                    "${DUSKLIGHT_USER_MODS_DIR}/dusklight_twilit_essentials.dusk"
+            COMMENT "Copying dusklight_twilit_essentials.dusk to ${DUSKLIGHT_USER_MODS_DIR}"
+    )
+endif ()
