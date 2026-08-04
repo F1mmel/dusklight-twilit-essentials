@@ -41,6 +41,25 @@ static void set_pane_influenced_alpha_recursive(J2DPane* pane, bool influenced);
 static u8 s_zInventorySlot = 0xFF;
 static u8 s_pendingZSlot = 0xFF;
 
+
+/*#include "mods/svc/resource.h"
+
+extern const ResourceService* get_resource_service();
+
+static J2DPicture* s_midnaPic = nullptr;
+static ResourceBuffer s_midnaBtiBuf = RESOURCE_BUFFER_INIT;
+static bool load_midna_bti_texture() {
+    if (s_midnaPic != nullptr) {
+        return true;
+    }
+
+    JKRArchive* arc = dComIfGp_getMain2DArchive();
+    ResTIMG* timgBuf = reinterpret_cast<ResTIMG*>(arc->getResource('TIMG', "midona64.bti"));
+    s_midnaPic = JKR_NEW J2DPicture(timgBuf);
+
+    return true;
+}*/
+
 static bool is_bomb_item(u8 item) {
     return item == 0x50 || item == 0x53 || item == 0x54 || item == 0x70 || item == 0x71 || item == 0x72;
 }
@@ -432,10 +451,44 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
         draw->field_0x6c4[2] = w;
         draw->field_0x6d0[2] = h;
 
-        J2DPane* midnaPane = draw->getMainScreenPtr()->search(MULTI_CHAR('midona_n'));
-        if (midnaPane != nullptr) {
-            midnaPane->show();
-            midnaPane->setAlpha(255);
+        // Move midna pane to cross section safely
+        J2DScreen* screen = draw->getMainScreenPtr();
+        if (screen != nullptr) {
+            J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
+            if (is_pause_menu_open(draw)) {
+                if (midnaPane != nullptr) {
+                    midnaPane->hide();
+                }
+            } else {
+                J2DPane* juji = screen->search(MULTI_CHAR('juji_n'));
+                if (midnaPane != nullptr && juji != nullptr) {
+                    if (midnaPane->getParentPane() != juji) {
+                        juji->appendChild(midnaPane);
+                        set_pane_influenced_alpha_recursive(midnaPane, true);
+                    }
+                    midnaPane->move(-18.0f, 0.0f);
+
+                    u8 crossAlpha = juji->getAlpha();
+                    bool visible = juji->isVisible() && crossAlpha > 0;
+                    midnaPane->setAlpha(crossAlpha);
+                    if (!visible) {
+                        midnaPane->hide();
+                    } else {
+                        midnaPane->show();
+                    }
+
+                    JSUTreeIterator<J2DPane> it(midnaPane->getFirstChild());
+                    while (it != midnaPane->getEndChild()) {
+                        if (!visible) {
+                            it->hide();
+                        } else {
+                            it->show();
+                        }
+                        it->setAlpha(crossAlpha);
+                        ++it;
+                    }
+                }
+            }
         }
     }
 
@@ -1168,12 +1221,14 @@ static HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, v
                 if (itemRChild != nullptr) itemRChild->hide();
                 J2DPane* textPane = screen->search(MULTI_CHAR('r_text_n'));
                 if (textPane != nullptr) textPane->hide();
+                J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
+                if (midnaPane != nullptr) midnaPane->hide();
                 return HOOK_CONTINUE;
             }
-            J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
-            J2DPane* jujiPane = screen->search(MULTI_CHAR('juji_n'));
+            //J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
+            //J2DPane* jujiPane = screen->search(MULTI_CHAR('juji_n'));
 
-            if (jujiPane != nullptr) {
+            /*if (jujiPane != nullptr) {
                 f32 jujiY = jujiPane->getGlbBounds().i.y - 5.0f;
 
                 // Larger minimap needs a bit more offset
@@ -1186,9 +1241,9 @@ static HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, v
                 if (midnaPane != nullptr) {
                     midnaPane->translate(midnaPane->getTranslateX(), jujiY);
                 }
-            }
+            }*/
 
-            u8 crossAlpha = 255;
+            /*u8 crossAlpha = 255;
             if (jujiPane != nullptr) {
                 crossAlpha = jujiPane->getAlpha();
             } else {
@@ -1196,9 +1251,9 @@ static HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, v
                 if (contPane != nullptr) {
                     crossAlpha = contPane->getAlpha();
                 }
-            }
+            }*/
 
-            if (midnaPane != nullptr) {
+            /*if (midnaPane != nullptr) {
                 midnaPane->setAlpha(crossAlpha);
                 if (crossAlpha == 0) {
                     midnaPane->hide();
@@ -1216,7 +1271,7 @@ static HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, v
                     it->setAlpha(crossAlpha);
                     ++it;
                 }
-            }
+            }*/
 
             J2DPane* zbtn = screen->search(MULTI_CHAR('zbtn_n'));
             if (zbtn != nullptr) {
@@ -1393,7 +1448,6 @@ static void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f3
     if (num < 0 || alphaRate <= 0.0f) return;
     if (num > 999) num = 999;
 
-    // s_drawDigitPic is a module-level static; reset by shutdown_custom_z_button on soft-reset
     if (s_drawDigitPic[0] == nullptr) {
         for (int i = 0; i < 3; i++) {
             s_drawDigitPic[i] = JKR_NEW J2DPicture();
@@ -1596,6 +1650,9 @@ static void on_meter2_draw_draw_post(ModContext*, void* args, void*, void*) {
     if (count >= 0) {
         draw_item_count_digits(count, maxCount, baseX, baseY, iconW, iconH, alphaRate);
     }
+
+    //J2DPane* midnaPane = draw->getMainScreenPtr()->search(MULTI_CHAR('midona_n'));
+    //midnaPane->setAlpha(juji->getAlpha());
 }
 
 ModResult init_custom_z_button(const HookService* hook_svc, ModError*) {
@@ -1640,18 +1697,8 @@ void update_custom_z_button(const LogService* log_svc, ModContext* mod_ctx) {
         g_drawHIO.mButtonXYBaseDimAlpha = 255;
         g_drawHIO.mButtonXYItemDimAlpha = 255;
 
-        f32 aspect = mDoGph_gInf_c::getAspect();
-        f32 extraWidescreenWidth = (aspect - (16.0f / 9.0f)) * 240.0f;
-
-        f32 posX = -750.0f - extraWidescreenWidth;
         f32 scale = 0.85f;
-
-        g_drawHIO.mMidnaIconPosX = posX;
         g_drawHIO.mMidnaIconScale = scale;
-        g_drawHIO.mMidnaIconAlpha = 1.0f;
-
-        g_drawHIO.mEmpButton.mMidnaIconPosX = posX;
-        g_drawHIO.mEmpButton.mMidnaIconScale = scale;
 
         g_drawHIO.mButtonZItemPosX = 0.0f;
         g_drawHIO.mButtonZItemPosY = 0.0f;
@@ -1663,11 +1710,6 @@ void update_custom_z_button(const LogService* log_svc, ModContext* mod_ctx) {
 }
 
 void shutdown_custom_z_button() {
-    // Reset all pointers that reference game-heap objects.
-    // The game heap is wiped on soft-reset (title screen return), so any cached
-    // J2DPicture / J2DPane / dKantera_icon_c pointers become dangling.
-    // Nulling them here forces lazy re-initialization on the next game session.
-
     s_zKanteraIcon = nullptr;
 
     s_drawDigitPic[0] = nullptr;
@@ -1690,4 +1732,37 @@ void shutdown_custom_z_button() {
 
     s_dpadLeftHeld = false;
     s_dpadLeftTrig = false;
+
+
+    // --- g_drawHIO Werte auf Standard zurücksetzen ---
+    g_drawHIO.mMidnaIconPosX = 0.0f;
+    g_drawHIO.mMidnaIconPosY = 0.0f;
+    g_drawHIO.mMidnaIconScale = 1.0f;
+    g_drawHIO.mMidnaIconAlpha = 1.0f;
+    g_drawHIO.mEmpButton.mMidnaIconPosX = 0.0f;
+    g_drawHIO.mEmpButton.mMidnaIconPosY = 0.0f;
+    g_drawHIO.mEmpButton.mMidnaIconScale = 1.0f;
+    dMeter2Draw_c* draw = nullptr;
+    if (g_meter2_info.getMeterClass() != nullptr) {
+        draw = g_meter2_info.getMeterClass()->getMeterDrawPtr();
+    }
+    if (draw != nullptr && draw->getMainScreenPtr() != nullptr) {
+        J2DScreen* screen = draw->getMainScreenPtr();
+        J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
+        J2DPane* contPane = screen->search(MULTI_CHAR('cont_n'));
+        if (midnaPane != nullptr) {
+            if (contPane != nullptr && midnaPane->getParentPane() != contPane) {
+                contPane->appendChild(midnaPane);
+            }
+            midnaPane->translate(-88.0f, -24.5f);
+            midnaPane->show();
+            midnaPane->setAlpha(255);
+            JSUTreeIterator<J2DPane> it(midnaPane->getFirstChild());
+            while (it != midnaPane->getEndChild()) {
+                it->show();
+                it->setAlpha(255);
+                ++it;
+            }
+        }
+    }
 }
