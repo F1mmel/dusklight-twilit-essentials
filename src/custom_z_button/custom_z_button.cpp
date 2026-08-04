@@ -19,6 +19,7 @@
 #include "f_op/f_op_actor_mng.h"
 #include "Z2AudioLib/Z2SeMgr.h"
 #include <cstdio>
+#include <cstring>
 
 bool g_configCustomZButtonEnabled = false;
 
@@ -198,6 +199,12 @@ static J2DPicture* s_zDigitPic[3] = { nullptr, nullptr, nullptr };
 static J2DPane*    s_zDigitParent  = nullptr;
 static bool        s_zDigitsInitialized = false;
 
+// Owned by draw_item_count_digits – promoted to module scope so shutdown can null them
+static J2DPicture* s_drawDigitPic[3] = { nullptr, nullptr, nullptr };
+
+// Owned by on_meter2_draw_draw_post – promoted to module scope so shutdown can null it
+static dKantera_icon_c* s_zKanteraIcon = nullptr;
+
 static void ensure_z_slot_initialized() {
     if (s_zInventorySlot == 0xFF) {
         u8 savedItemIdx = dComIfGs_getSelectItemIndex(2);
@@ -233,6 +240,20 @@ static void ensure_z_slot_initialized() {
     }
 }
 
+static bool isTitleOrMainMenu() {
+    daPy_py_c* player = daPy_getLinkPlayerActorClass();
+    if (player == nullptr) {
+        return true;
+    }
+    const char* stageName = dComIfGp_getStartStageName();
+    if (stageName != nullptr) {
+        if (std::strcmp(stageName, "F_SP102") == 0 || std::strcmp(stageName, "title") == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool isWolfPlayer() {
     daAlink_c* player = static_cast<daAlink_c*>(dComIfGp_getLinkPlayer());
     if (player != nullptr && player->checkWolf()) {
@@ -265,6 +286,20 @@ static bool is_pause_menu_open(dMeter2Draw_c* draw = nullptr) {
     return false;
 }
 
+// Safe wrappers around CPaneMgr methods.
+// CPaneMgrAlpha::hide()/show()/etc. all dereference an internal J2DPane* without
+// null-checking it first. After a soft-reset the game heap is wiped, so that
+// pointer becomes nullptr / garbage. Call these wrappers everywhere instead.
+static inline bool pane_is_ready(CPaneMgr* p) {
+    return p != nullptr && p->getPanePtr() != nullptr;
+}
+static inline void safe_pane_hide(CPaneMgr* p)  { if (pane_is_ready(p)) p->hide(); }
+static inline void safe_pane_show(CPaneMgr* p)  { if (pane_is_ready(p)) p->show(); }
+static inline void safe_pane_resize(CPaneMgr* p, f32 w, f32 h) { if (pane_is_ready(p)) p->resize(w, h); }
+static inline void safe_pane_trans(CPaneMgr* p, f32 x, f32 y)  { if (pane_is_ready(p)) p->paneTrans(x, y); }
+static inline void safe_pane_alpha_rate(CPaneMgr* p, f32 a)    { if (pane_is_ready(p)) p->setAlphaRate(a); }
+static inline void safe_pane_alpha(CPaneMgr* p, u8 a)          { if (pane_is_ready(p)) p->setAlpha(a); }
+
 static void update_z_item_texture(dMeter2Draw_c* draw) {
     if (draw == nullptr) {
         if (g_meter2_info.getMeterClass() != nullptr) {
@@ -272,11 +307,13 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
         }
     }
 
+    if (draw == nullptr || isTitleOrMainMenu()) {
+        return;
+    }
+
     CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
     if (isWolfPlayer() || is_pause_menu_open(draw)) {
-        if (itemR) {
-            itemR->hide();
-        }
+        safe_pane_hide(itemR);
         s_cachedZMainPic = nullptr;
         return;
     }
@@ -318,7 +355,7 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
     }
 
     if (zItem == 0xFF || zItem == 0x00 || zItem == dItemNo_NONE_e) {
-        itemR->hide();
+        safe_pane_hide(itemR);
         s_cachedZMainPic = nullptr;
         return;
     }
@@ -424,14 +461,14 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
         }
     }
 
-    itemR->resize(w, h);
+    safe_pane_resize(itemR, w, h);
     if (shinePic) shinePic->resize(w, h);
 
-    itemR->paneTrans(offsetX, offsetY);
+    safe_pane_trans(itemR, offsetX, offsetY);
 
-    itemR->show();
-    itemR->setAlphaRate(1.0f);
-    itemR->setAlpha(255);
+    safe_pane_show(itemR);
+    safe_pane_alpha_rate(itemR, 1.0f);
+    safe_pane_alpha(itemR, 255);
     pane->show();
     pane->setAlpha(255);
     mainPic->setAlpha(255);
@@ -520,7 +557,7 @@ static void init_z_hud_nodes(dMeter2Draw_c* draw) {
 }
 
 static void on_draw_button_z_post(ModContext*, void* args, void*, void*) {
-    if (!g_configCustomZButtonEnabled || !args) {
+    if (!g_configCustomZButtonEnabled || !args || isTitleOrMainMenu()) {
         return;
     }
 
@@ -533,9 +570,7 @@ static void on_draw_button_z_post(ModContext*, void* args, void*, void*) {
 
     if (isWolfPlayer()) {
         CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
-        if (itemR) {
-            itemR->hide();
-        }
+        safe_pane_hide(itemR);
         for (int i = 0; i < 3; i++) {
             if (s_zDigitPic[i]) {
                 s_zDigitPic[i]->hide();
@@ -917,7 +952,7 @@ static HookAction on_check_set_item_trigger_pre(ModContext*, void* args, void* r
 
 
 static void on_pad_read_post(ModContext*, void*, void*, void*) {
-    if (!g_configCustomZButtonEnabled) {
+    if (!g_configCustomZButtonEnabled || isTitleOrMainMenu()) {
         return;
     }
 
@@ -1094,7 +1129,7 @@ static void on_set_active_cursor_post(ModContext*, void* args, void*, void*) {
 
 
 static void on_check_status_post(ModContext*, void* args, void*, void*) {
-    if (!g_configCustomZButtonEnabled || !args) {
+    if (!g_configCustomZButtonEnabled || !args || isTitleOrMainMenu()) {
         return;
     }
 
@@ -1111,14 +1146,12 @@ static void on_check_status_post(ModContext*, void* args, void*, void*) {
 }
 
 static void on_meter2_execute_post(ModContext*, void*, void*, void*) {
-    if (!g_configCustomZButtonEnabled) {
+    if (!g_configCustomZButtonEnabled || isTitleOrMainMenu()) {
         return;
     }
     if (is_pause_menu_open()) {
         CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
-        if (itemR) {
-            itemR->hide();
-        }
+        safe_pane_hide(itemR);
         return;
     }
     g_meter2_info.onUseButton(0x800);
@@ -1279,9 +1312,7 @@ static HookAction on_change_texture_item_xy_pre(ModContext*, void* args, void*, 
 
     if (isWolfPlayer()) {
         CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
-        if (itemR) {
-            itemR->hide();
-        }
+        safe_pane_hide(itemR);
         return HOOK_SKIP_ORIGINAL;
     }
 
@@ -1384,10 +1415,10 @@ static void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f3
     if (num < 0 || alphaRate <= 0.0f) return;
     if (num > 999) num = 999;
 
-    static J2DPicture* s_digitPic[3] = {nullptr, nullptr, nullptr};
-    if (s_digitPic[0] == nullptr) {
+    // s_drawDigitPic is a module-level static; reset by shutdown_custom_z_button on soft-reset
+    if (s_drawDigitPic[0] == nullptr) {
         for (int i = 0; i < 3; i++) {
-            s_digitPic[i] = JKR_NEW J2DPicture();
+            s_drawDigitPic[i] = JKR_NEW J2DPicture();
         }
     }
 
@@ -1405,8 +1436,8 @@ static void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f3
     }
 
     for (int i = 0; i < 3; i++) {
-        s_digitPic[i]->setBlackWhite(black, white);
-        s_digitPic[i]->setAlpha((u8)(alphaRate * 255.0f));
+        s_drawDigitPic[i]->setBlackWhite(black, white);
+        s_drawDigitPic[i]->setAlpha((u8)(alphaRate * 255.0f));
     }
 
     f32 digitW = 14.0f;
@@ -1417,9 +1448,9 @@ static void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f3
     if (num < 10) {
         ResTIMG* timg = (ResTIMG*)arc->getResource('TIMG', dMeter2Info_getNumberTextureName(num));
         if (timg) {
-            s_digitPic[0]->changeTexture(timg, 0);
-            s_digitPic[0]->show();
-            s_digitPic[0]->draw(startX + iconW - digitW, startY, digitW, digitH, false, false, false);
+            s_drawDigitPic[0]->changeTexture(timg, 0);
+            s_drawDigitPic[0]->show();
+            s_drawDigitPic[0]->draw(startX + iconW - digitW, startY, digitW, digitH, false, false, false);
         }
     } else if (num < 100) {
         int tens = num / 10;
@@ -1429,13 +1460,13 @@ static void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f3
         ResTIMG* t2 = (ResTIMG*)arc->getResource('TIMG', dMeter2Info_getNumberTextureName(units));
 
         if (t1 && t2) {
-            s_digitPic[0]->changeTexture(t1, 0);
-            s_digitPic[0]->show();
-            s_digitPic[0]->draw(startX + iconW - (digitW * 1.8f), startY, digitW, digitH, false, false, false);
+            s_drawDigitPic[0]->changeTexture(t1, 0);
+            s_drawDigitPic[0]->show();
+            s_drawDigitPic[0]->draw(startX + iconW - (digitW * 1.8f), startY, digitW, digitH, false, false, false);
 
-            s_digitPic[1]->changeTexture(t2, 0);
-            s_digitPic[1]->show();
-            s_digitPic[1]->draw(startX + iconW - (digitW * 0.9f), startY, digitW, digitH, false, false, false);
+            s_drawDigitPic[1]->changeTexture(t2, 0);
+            s_drawDigitPic[1]->show();
+            s_drawDigitPic[1]->draw(startX + iconW - (digitW * 0.9f), startY, digitW, digitH, false, false, false);
         }
     } else {
         int hundreds = num / 100;
@@ -1447,12 +1478,12 @@ static void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f3
         ResTIMG* t3 = (ResTIMG*)arc->getResource('TIMG', dMeter2Info_getNumberTextureName(units));
 
         if (t1 && t2 && t3) {
-            s_digitPic[0]->changeTexture(t1, 0);
-            s_digitPic[0]->draw(startX + iconW - (digitW * 2.7f), startY, digitW, digitH, false, false, false);
-            s_digitPic[1]->changeTexture(t2, 0);
-            s_digitPic[1]->draw(startX + iconW - (digitW * 1.8f), startY, digitW, digitH, false, false, false);
-            s_digitPic[2]->changeTexture(t3, 0);
-            s_digitPic[2]->draw(startX + iconW - (digitW * 0.9f), startY, digitW, digitH, false, false, false);
+            s_drawDigitPic[0]->changeTexture(t1, 0);
+            s_drawDigitPic[0]->draw(startX + iconW - (digitW * 2.7f), startY, digitW, digitH, false, false, false);
+            s_drawDigitPic[1]->changeTexture(t2, 0);
+            s_drawDigitPic[1]->draw(startX + iconW - (digitW * 1.8f), startY, digitW, digitH, false, false, false);
+            s_drawDigitPic[2]->changeTexture(t3, 0);
+            s_drawDigitPic[2]->draw(startX + iconW - (digitW * 0.9f), startY, digitW, digitH, false, false, false);
         }
     }
 }
@@ -1469,7 +1500,7 @@ static void on_meter2_draw_draw_post(ModContext*, void* args, void*, void*) {
         return;
     }
 
-    if (!g_configCustomZButtonEnabled || isWolfPlayer()) {
+    if (!g_configCustomZButtonEnabled || isWolfPlayer() || isTitleOrMainMenu()) {
         J2DScreen* screen = draw->getMainScreenPtr();
         if (screen != nullptr) {
             J2DPane* itemRPane = screen->search(MULTI_CHAR('r_itm_p'));
@@ -1568,8 +1599,8 @@ static void on_meter2_draw_draw_post(ModContext*, void* args, void*, void*) {
         maxCount = dComIfGs_getBombMax(bombType);
     }
     // Lantern uses its own oil gauge widget
+    // s_zKanteraIcon is a module-level static; reset by shutdown_custom_z_button on soft-reset
     else if (zItem == 0x48) {
-        static dKantera_icon_c* s_zKanteraIcon = nullptr;
         if (s_zKanteraIcon == nullptr) {
             s_zKanteraIcon = JKR_NEW dKantera_icon_c();
         }
@@ -1619,7 +1650,10 @@ void update_custom_z_button(const LogService* log_svc, ModContext* mod_ctx) {
     s_logSvc = log_svc;
     s_modCtx = mod_ctx;
 
-    if (g_configCustomZButtonEnabled) {
+    if (!g_configCustomZButtonEnabled || isTitleOrMainMenu()) {
+        shutdown_custom_z_button();
+        return;
+    }
         g_meter2_info.onUseButton(0x800);
 
         g_drawHIO.mParentAlpha = 1.0f;
@@ -1645,11 +1679,37 @@ void update_custom_z_button(const LogService* log_svc, ModContext* mod_ctx) {
         g_drawHIO.mButtonZItemPosY = 0.0f;
         g_drawHIO.mButtonZItemScale = 1.0f;
 
-        if (daPy_getLinkPlayerActorClass() != nullptr && !isWolfPlayer()) {
+        if (!isWolfPlayer()) {
             update_z_item_texture();
         }
-    }
 }
 
 void shutdown_custom_z_button() {
+    // Reset all pointers that reference game-heap objects.
+    // The game heap is wiped on soft-reset (title screen return), so any cached
+    // J2DPicture / J2DPane / dKantera_icon_c pointers become dangling.
+    // Nulling them here forces lazy re-initialization on the next game session.
+
+    s_zKanteraIcon = nullptr;
+
+    s_drawDigitPic[0] = nullptr;
+    s_drawDigitPic[1] = nullptr;
+    s_drawDigitPic[2] = nullptr;
+
+    s_zDigitPic[0] = nullptr;
+    s_zDigitPic[1] = nullptr;
+    s_zDigitPic[2] = nullptr;
+    s_zDigitParent      = nullptr;
+    s_zDigitsInitialized = false;
+
+    s_cachedZMainPic    = nullptr;
+    s_lastLoadedZItem   = 0xFF;
+
+    s_zInventorySlot = 0xFF;
+    s_pendingZSlot   = 0xFF;
+
+    s_ringArgs = nullptr;
+
+    s_dpadLeftHeld = false;
+    s_dpadLeftTrig = false;
 }
