@@ -3,6 +3,7 @@
 #include "damage_numbers/damage_numbers.hpp"
 #include "custom_z_button/custom_z_button.hpp"
 #include "horse_call/horse_call.hpp"
+#include "update_service.hpp"
 
 #include "mods/hook.hpp"
 #include "mods/service.hpp"
@@ -118,6 +119,13 @@ static ConfigVarHandle s_varDamageNumbers = 0;
 static ConfigVarHandle s_varCustomZButton = 0;
 static ConfigVarHandle s_varDpadHorseCall = 0;
 static ConfigVarHandle s_varDpadHorseCallAllowAnytime = 0;
+static ConfigVarHandle s_varCheckForUpdates = 0;
+
+static void on_check_for_updates_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
+    if (value) {
+        g_configCheckForUpdatesEnabled = value->bool_value;
+    }
+}
 
 static void on_hp_bars_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
     if (value) {
@@ -175,6 +183,16 @@ static void on_dpad_horse_call_allow_anytime_changed(ModContext*, ConfigVarHandl
 
 static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, ModError*) {
     if (!svc_ui) return MOD_OK;
+
+    if (s_varCheckForUpdates != 0) {
+        UiControlDesc ctrlUpdate = UI_CONTROL_DESC_INIT;
+        ctrlUpdate.kind = UI_CONTROL_TOGGLE;
+        ctrlUpdate.label = "Check for Updates";
+        ctrlUpdate.help_rml = "Automatically check GitHub for new versions on startup and prompt to update (On by default).";
+        ctrlUpdate.binding = UI_BINDING_CONFIG_VAR;
+        ctrlUpdate.config_var = s_varCheckForUpdates;
+        svc_ui->pane_add_control(mod_ctx, panel, &ctrlUpdate, nullptr);
+    }
 
     // --- Section 1: Enemy HP Bars ---
     svc_ui->pane_add_section(mod_ctx, panel, "Enemy HP Bars");
@@ -375,6 +393,15 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
             svc_config->get_bool(mod_ctx, s_varDpadHorseCallAllowAnytime, &g_configDpadHorseCallAllowAnytime);
             svc_config->subscribe(mod_ctx, s_varDpadHorseCallAllowAnytime, on_dpad_horse_call_allow_anytime_changed, nullptr, nullptr);
         }
+
+        ConfigVarDesc descUpdate = CONFIG_VAR_DESC_INIT;
+        descUpdate.name = "checkForUpdates";
+        descUpdate.type = CONFIG_VAR_BOOL;
+        descUpdate.default_bool = true;
+        if (svc_config->register_var(mod_ctx, &descUpdate, &s_varCheckForUpdates) == MOD_OK) {
+            svc_config->get_bool(mod_ctx, s_varCheckForUpdates, &g_configCheckForUpdatesEnabled);
+            svc_config->subscribe(mod_ctx, s_varCheckForUpdates, on_check_for_updates_changed, nullptr, nullptr);
+        }
     }
 
     if (svc_ui) {
@@ -397,6 +424,7 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     init_visible_equipment(svc_hook, error);
     init_custom_z_button(svc_hook, error);
     init_horse_call(svc_hook, error);
+    init_update_service(svc_log, mod_ctx, svc_ui, svc_config, s_varCheckForUpdates);
 
     if (svc_log) svc_log->info(mod_ctx, "dusklight_twilit_essentials main dispatcher initialized successfully");
     return MOD_OK;
@@ -407,6 +435,7 @@ MOD_EXPORT ModResult mod_update(ModError*) {
     update_visible_equipment(svc_log, mod_ctx);
     update_custom_z_button(svc_log, mod_ctx);
     update_horse_call(svc_log, mod_ctx);
+    update_update_service(svc_log, mod_ctx, svc_ui);
     return MOD_OK;
 }
 
@@ -416,6 +445,7 @@ MOD_EXPORT ModResult mod_shutdown(ModError*) {
     shutdown_visible_equipment();
     shutdown_custom_z_button();
     shutdown_horse_call();
+    shutdown_update_service();
     return MOD_OK;
 }
 }

@@ -21,6 +21,7 @@ add_mod(dusklight_twilit_essentials
             src/damage_numbers/damage_numbers.cpp
             src/custom_z_button/custom_z_button.cpp
             src/horse_call/horse_call.cpp
+            src/update_service.cpp
         MOD_JSON mod.json
         RES_DIR res
         OVERLAY_DIR overlay

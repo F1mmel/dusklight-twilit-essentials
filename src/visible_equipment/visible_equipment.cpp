@@ -321,21 +321,19 @@ static void renderLantern(daAlink_c* alink) {
     }
 
     J3DModelData* modelData = alink->mpLinkModel->getModelData();
-    if (modelData == nullptr || modelData->getJointNum() <= 0x10) {
-        return;
-    }
-    MtxP beltMtx = alink->mpLinkModel->getAnmMtx(0x10);
+    MtxP beltMtx = (modelData != nullptr && modelData->getJointNum() > 0x10) ? alink->mpLinkModel->getAnmMtx(0x10) : getBoneMtx(alink, "waist");
     if (beltMtx != nullptr) {
         mDoMtx_stack_c::copy(beltMtx);
         mDoMtx_stack_c::transM(-1.0f, 4.5f, 9.0f);
         mDoMtx_stack_c::XYZrotM(cM_deg2s(-75.0f), cM_deg2s(62.0f), cM_deg2s(89.0f));
         s_customLanternModel->setBaseTRMtx(mDoMtx_stack_c::get());
 
+        J3DModelData* mData = s_customLanternModel->getModelData();
+        if (mData != nullptr && mData->getJointNodePointer(1) != nullptr) {
+            mData->getJointNodePointer(1)->setCallBack(visibleLanternJointCallback);
+        }
+
         if (!s_veLanternCallbackRegistered) {
-            J3DModelData* mData = s_customLanternModel->getModelData();
-            if (mData != nullptr && mData->getJointNodePointer(1) != nullptr) {
-                mData->getJointNodePointer(1)->setCallBack(visibleLanternJointCallback);
-            }
             static Vec const lanternTipOffset = {0.0f, -17.0f, 0.0f};
             mDoMtx_multVec(mDoMtx_stack_c::get(), &lanternTipOffset, &s_veLanternFlamePos);
             s_veLanternPrevPos = s_veLanternFlamePos;
