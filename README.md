@@ -1,4 +1,4 @@
-# Twilit Essentials v1.0.3
+# Twilit Essentials v1.0.5
 
 A collection of gameplay enhancements, visual improvements, and combat refinements for *The Legend of Zelda: Twilight Princess* on the [Dusklight](https://github.com/TwilitRealm/dusklight) engine.
 

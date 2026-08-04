@@ -20,6 +20,8 @@
 #include "JSystem/J2DGraph/J2DScreen.h"
 #include "JSystem/J2DGraph/J2DTextBox.h"
 
+#define MOD_TITLE_VERSION_TEXT "Twilit Essentials v" TWILIT_ESSENTIALS_VERSION
+
 DEFINE_HOOK(&dDlst_daTitle_c::draw, DlstTitleDrawHook);
 
 static HookAction on_title_draw_pre(ModContext*, void* args, void*, void*) {
@@ -42,7 +44,7 @@ static HookAction on_title_draw_pre(ModContext*, void* args, void*, void*) {
             MULTI_CHAR('m_mshd'),
             shadowBox,
             resFont,
-            "Twilit Essentials v1.0.4",
+            MOD_TITLE_VERSION_TEXT,
             64,
             HBIND_CENTER,
             VBIND_CENTER
@@ -60,7 +62,7 @@ static HookAction on_title_draw_pre(ModContext*, void* args, void*, void*) {
             MULTI_CHAR('m_mod'),
             box,
             resFont,
-            "Twilit Essentials v1.0.4",
+            MOD_TITLE_VERSION_TEXT,
             64,
             HBIND_CENTER,
             VBIND_CENTER

@@ -7,6 +7,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -22,7 +23,7 @@ static const UiService* s_uiSvc = nullptr;
 static const ConfigService* s_configSvc = nullptr;
 static ConfigVarHandle s_varCheckForUpdates = 0;
 
-static const char* MOD_CURRENT_VERSION = "1.0.4";
+static const char* MOD_CURRENT_VERSION = TWILIT_ESSENTIALS_VERSION;
 static const char* GITHUB_API_URL = "https://api.github.com/repos/F1mmel/dusklight-twilit-essentials/releases/latest";
 
 enum DownloadState {
@@ -39,6 +40,7 @@ static bool s_dialogShown = false;
 static std::string s_latestTagName;
 static std::string s_downloadUrl;
 
+static std::chrono::steady_clock::time_point s_updateDetectedTime;
 static std::atomic<DownloadState> s_downloadState{DL_IDLE};
 static UiDialogHandle s_activeDialogHandle = 0;
 
@@ -49,7 +51,7 @@ static std::string http_get(const std::string& url) {
         return response;
     }
 
-    DWORD timeout = 5000; // 5s timeout
+    DWORD timeout = 5000;
     InternetSetOptionA(hInternet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof(timeout));
     InternetSetOptionA(hInternet, INTERNET_OPTION_RECEIVE_TIMEOUT, &timeout, sizeof(timeout));
 
@@ -81,7 +83,7 @@ static bool download_file(const std::string& url, const std::string& destPath) {
         return false;
     }
 
-    DWORD timeout = 15000; // 15s download timeout
+    DWORD timeout = 15000;
     InternetSetOptionA(hInternet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof(timeout));
     InternetSetOptionA(hInternet, INTERNET_OPTION_RECEIVE_TIMEOUT, &timeout, sizeof(timeout));
 
@@ -252,6 +254,7 @@ static void start_version_check_thread() {
                 std::lock_guard<std::mutex> lock(s_mutex);
                 s_latestTagName = tagName;
                 s_downloadUrl = downloadUrl;
+                s_updateDetectedTime = std::chrono::steady_clock::now();
                 s_updateAvailable = true;
 
                 if (s_logSvc && s_modCtx) {
@@ -289,6 +292,11 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
 
     // 1. Show update prompt dialog when update is detected
     if (s_updateAvailable && !s_dialogShown) {
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - s_updateDetectedTime).count() < 1000) {
+            return;
+        }
+
         s_dialogShown = true;
 
         std::string latestTag;
@@ -325,7 +333,7 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
         ui_svc->dialog_push(mod_ctx, &desc, &s_activeDialogHandle);
     }
 
-    // 2. Handle completion of file download on main thread
+    // Handle completion of file download
     DownloadState state = s_downloadState.load();
     if (state == DL_SUCCESS) {
         s_downloadState = DL_HANDLED;

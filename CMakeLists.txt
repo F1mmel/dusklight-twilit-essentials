@@ -11,6 +11,13 @@ endif ()
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchDusklight.cmake")
 add_subdirectory("${DUSKLIGHT_DIR}/sdk" dusklight-sdk EXCLUDE_FROM_ALL)
 
+# Read version from mod.json automatically
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/mod.json" MOD_JSON_CONTENT)
+string(JSON TWILIT_ESSENTIALS_VER GET "${MOD_JSON_CONTENT}" "version")
+
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/mod.json")
+set_source_files_properties(src/mod.cpp src/update_service.cpp PROPERTIES OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/mod.json")
+
 # Automatically copy textures directory into res/textures so they get packaged into .dusk
 add_mod(dusklight_twilit_essentials
         FEATURES game
@@ -25,6 +32,16 @@ add_mod(dusklight_twilit_essentials
         MOD_JSON mod.json
         RES_DIR res
         OVERLAY_DIR overlay
+)
+
+target_compile_definitions(dusklight_twilit_essentials PRIVATE TWILIT_ESSENTIALS_VERSION="${TWILIT_ESSENTIALS_VER}")
+
+# Automatically sync version in README.md on every build
+add_custom_command(TARGET dusklight_twilit_essentials POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+        -DMOD_JSON_PATH="${CMAKE_CURRENT_SOURCE_DIR}/mod.json"
+        -DREADME_PATH="${CMAKE_CURRENT_SOURCE_DIR}/README.md"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SyncReadmeVersion.cmake"
 )
 
 # Prevent MSVC linker from stripping mod metadata section records (/OPT:REF)
