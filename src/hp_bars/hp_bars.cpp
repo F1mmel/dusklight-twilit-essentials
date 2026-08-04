@@ -27,6 +27,7 @@
 
 bool g_configHpBarsEnabled = false;
 bool g_configHpBarsBossesEnabled = false;
+bool g_configHpBarsShowNumbers = false;
 
 DEFINE_HOOK(&dMeter2Draw_c::draw, Meter2Draw);
 
@@ -526,15 +527,17 @@ static int drawEnemyHpBarCallback(void* pActor, void* pData) {
         }
     }
 
-    char hpText[32];
-    std::snprintf(hpText, sizeof(hpText), "%d/%d", actor->health, maxHp);
-    const f32 fontW = 5.2f;
-    const f32 fontH = 6.2f;
-    f32 textWidth = get_text_width_ingame(hpText, fontW);
-    f32 textX = drawX + (barWidth - textWidth) * 0.5f;
-    f32 textY = drawY - 4.5f;
+    if (g_configHpBarsShowNumbers) {
+        char hpText[32];
+        std::snprintf(hpText, sizeof(hpText), "%d/%d", actor->health, maxHp);
+        const f32 fontW = 5.2f;
+        const f32 fontH = 6.2f;
+        f32 textWidth = get_text_width_ingame(hpText, fontW);
+        f32 textX = drawX + (barWidth - textWidth) * 0.5f;
+        f32 textY = drawY - 4.5f;
 
-    draw_text_ingame(hpText, textX, textY, fontW, fontH, JUtility::TColor(255, 245, 210, getAlpha(255)), true);
+        draw_text_ingame(hpText, textX, textY, fontW, fontH, JUtility::TColor(255, 245, 210, getAlpha(255)), true);
+    }
 
     return 0;
 }

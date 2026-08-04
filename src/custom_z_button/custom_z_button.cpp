@@ -32,6 +32,8 @@ static u8* s_zTexBufShine[2] = { nullptr, nullptr };
 static u8 s_zTexBufIdx = 0;
 
 static void update_z_item_texture(dMeter2Draw_c* draw = nullptr);
+static void init_z_hud_nodes(dMeter2Draw_c* draw);
+static void set_pane_influenced_alpha_recursive(J2DPane* pane, bool influenced);
 
 // We keep track of the Z slot ourselves because mSelectItem[2] stores an ItemNo,
 // not a slot index. Passing that to dComIfGs_getItem() reads garbage.
@@ -239,14 +241,60 @@ static bool isWolfPlayer() {
     return false;
 }
 
+static bool is_pause_menu_open(dMeter2Draw_c* draw = nullptr) {
+    u8 winStatus = g_meter2_info.getWindowStatus();
+    // windowStatus 2 is the Item Wheel / Ring Menu (where Z item MUST stay visible)
+    if (winStatus == 2) {
+        return false;
+    }
+
+    if (dComIfGp_isPauseFlag()) return true;
+    if (g_meter2_info.getPauseStatus() != 0) return true;
+    if (winStatus != 0) return true;
+
+    if (draw == nullptr && g_meter2_info.getMeterClass() != nullptr) {
+        draw = g_meter2_info.getMeterClass()->getMeterDrawPtr();
+    }
+    if (draw != nullptr && draw->getMainScreenPtr() != nullptr) {
+        J2DScreen* screen = draw->getMainScreenPtr();
+        J2DPane* contPane = screen->search(MULTI_CHAR('cont_n'));
+        if (contPane != nullptr && (!contPane->isVisible() || contPane->getAlpha() == 0)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void update_z_item_texture(dMeter2Draw_c* draw) {
+    if (draw == nullptr) {
+        if (g_meter2_info.getMeterClass() != nullptr) {
+            draw = g_meter2_info.getMeterClass()->getMeterDrawPtr();
+        }
+    }
+
     CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
-    if (isWolfPlayer()) {
+    if (isWolfPlayer() || is_pause_menu_open(draw)) {
         if (itemR) {
             itemR->hide();
         }
         s_cachedZMainPic = nullptr;
         return;
+    }
+
+    if (draw != nullptr) {
+        init_z_hud_nodes(draw);
+    }
+
+    if (itemR && itemR->getPanePtr() && draw) {
+        J2DScreen* screen = draw->getMainScreenPtr();
+        if (screen) {
+            J2DPane* zbtn = screen->search(MULTI_CHAR('zbtn_n'));
+            J2DPane* itemPane = itemR->getPanePtr();
+            if (zbtn && itemPane && itemPane->getParentPane() != zbtn) {
+                zbtn->appendChild(itemPane);
+                set_pane_influenced_alpha_recursive(itemPane, true);
+            }
+        }
     }
 
     ensure_z_buffers();
@@ -329,12 +377,6 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
         }
     }
 
-    if (mainPic != nullptr && mainBuf != nullptr) {
-        if (mainPic->getTexture(0) == nullptr || mainPic->getTexture(0)->getTexInfo() != mainBuf) {
-            mainPic->changeTexture(mainBuf, 0);
-        }
-    }
-
     f32 texScale = g_drawHIO.mItemScaleAdjustON
         ? (g_drawHIO.mItemScalePercent / 100.0f)
         : (dItem_data::getTexScale(zItem) / 100.0f);
@@ -361,16 +403,20 @@ static void update_z_item_texture(dMeter2Draw_c* draw) {
 
             }
 
-            static u32 s_midnaYLogTimer = 0;
-            if (++s_midnaYLogTimer % 30 == 0 && s_logSvc && s_modCtx) {
-                char buf[256];
-                f32 midnaTransY = midnaPane ? midnaPane->getTranslateY() : 0.0f;
-                f32 jujiGlbY = jujiPane->getGlbBounds().i.y;
-                std::snprintf(buf, sizeof(buf),
-                    "[MidnaYLog] frame=%u jujiY=%.2f jujiGlbY=%.2f midnaTransY=%.2f mMidnaIconPosY=%.2f",
-                    s_midnaYLogTimer, jujiY, jujiGlbY, midnaTransY, g_drawHIO.mMidnaIconPosY);
-                s_logSvc->info(s_modCtx, buf);
-            }
+    static u32 s_diagTimer = 0;
+    if (++s_diagTimer % 60 == 0 && s_logSvc && s_modCtx) {
+        J2DScreen* scr = draw ? draw->getMainScreenPtr() : nullptr;
+        JUTTexture* tex = mainPic ? mainPic->getTexture(0) : nullptr;
+        const ResTIMG* texInfo = tex ? tex->getTexInfo() : nullptr;
+
+        char buf[512];
+        std::snprintf(buf, sizeof(buf),
+            "[ZButtonDiag f=%u] draw=%p scr=%p slot=%d zItem=0x%02X lastLoaded=0x%02X itemR=%p pane=%p (vis=%d alpha=%d parent=%p) mainPic=%p tex=%p texInfo=%p buf0=%p buf1=%p idx=%d",
+            s_diagTimer, draw, scr, (int)s_zInventorySlot, zItem, s_lastLoadedZItem,
+            itemR, pane, pane ? pane->isVisible() : -1, pane ? pane->getAlpha() : -1, pane ? pane->getParentPane() : nullptr,
+            mainPic, tex, texInfo, s_zTexBufMain[0], s_zTexBufMain[1], (int)s_zTexBufIdx);
+        s_logSvc->info(s_modCtx, buf);
+    }
         }
         if (midnaPane != nullptr) {
             midnaPane->show();
@@ -443,7 +489,6 @@ static void init_z_hud_nodes(dMeter2Draw_c* draw) {
         s_zDigitPic[2] = nullptr;
         s_lastLoadedZItem = 0xFF;
         s_cachedZMainPic = nullptr;
-        s_zInventorySlot = 0xFF;
     }
 
     if (s_zDigitsInitialized) return;
@@ -482,18 +527,6 @@ static void on_draw_button_z_post(ModContext*, void* args, void*, void*) {
     dMeter2Draw_c* draw = mods::arg<dMeter2Draw_c*>(args, 0);
     if (!draw) {
         return;
-    }
-
-    static u32 s_logTopTimer = 0;
-    if (++s_logTopTimer % 60 == 0 && s_logSvc && s_modCtx) {
-        J2DScreen* scr = draw ? draw->getMainScreenPtr() : nullptr;
-        J2DPane* mPane = scr ? scr->search(MULTI_CHAR('midona_n')) : nullptr;
-        J2DPane* jPane = scr ? scr->search(MULTI_CHAR('juji_n')) : nullptr;
-        char buf[256];
-        std::snprintf(buf, sizeof(buf),
-            "[CustomZButton TOP LOG] draw=%p screen=%p midona_n=%p juji_n=%p",
-            draw, scr, mPane, jPane);
-        s_logSvc->info(s_modCtx, buf);
     }
 
     init_z_hud_nodes(draw);
@@ -1081,6 +1114,13 @@ static void on_meter2_execute_post(ModContext*, void*, void*, void*) {
     if (!g_configCustomZButtonEnabled) {
         return;
     }
+    if (is_pause_menu_open()) {
+        CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
+        if (itemR) {
+            itemR->hide();
+        }
+        return;
+    }
     g_meter2_info.onUseButton(0x800);
     if (!isWolfPlayer()) {
         update_z_item_texture();
@@ -1110,6 +1150,15 @@ static HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, v
     if (draw != nullptr) {
         J2DScreen* screen = draw->getMainScreenPtr();
         if (screen != nullptr) {
+            if (is_pause_menu_open(draw)) {
+                J2DPane* itemRPane = screen->search(MULTI_CHAR('r_itm_p'));
+                if (itemRPane != nullptr) itemRPane->hide();
+                J2DPane* itemRChild = screen->search(MULTI_CHAR('r_itm_pp'));
+                if (itemRChild != nullptr) itemRChild->hide();
+                J2DPane* textPane = screen->search(MULTI_CHAR('r_text_n'));
+                if (textPane != nullptr) textPane->hide();
+                return HOOK_CONTINUE;
+            }
             J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
             J2DPane* jujiPane = screen->search(MULTI_CHAR('juji_n'));
 

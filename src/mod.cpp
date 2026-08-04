@@ -103,7 +103,7 @@ extern "C" MOD_EXPORT const void* const g_keep_mod_records[] = {
 };
 
 static ConfigVarHandle s_varHpBars = 0;
-static ConfigVarHandle s_varHpBarsBosses = 0;
+static ConfigVarHandle s_varHpBarsShowNumbers = 0;
 static ConfigVarHandle s_varVisibleEquip = 0;
 static ConfigVarHandle s_varVisibleEquipMode = 0;
 static ConfigVarHandle s_varVisibleEquipMirrorBow = 0;
@@ -116,9 +116,9 @@ static void on_hp_bars_changed(ModContext*, ConfigVarHandle, const ConfigVarValu
     }
 }
 
-static void on_hp_bars_bosses_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
+static void on_hp_bars_show_numbers_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
     if (value) {
-        g_configHpBarsBossesEnabled = value->bool_value;
+        g_configHpBarsShowNumbers = value->bool_value;
     }
 }
 
@@ -155,9 +155,9 @@ static void on_custom_z_button_changed(ModContext*, ConfigVarHandle, const Confi
 static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, ModError*) {
     if (!svc_ui) return MOD_OK;
 
-    // --- Section 1: Enemy & Boss HP Bars ---
-    svc_ui->pane_add_section(mod_ctx, panel, "Enemy & Boss HP Bars");
-    svc_ui->pane_add_text(mod_ctx, panel, "Displays dynamic overhead and top HUD health bars for active enemies and bosses.", nullptr);
+    // --- Section 1: Enemy HP Bars ---
+    svc_ui->pane_add_section(mod_ctx, panel, "Enemy HP Bars");
+    svc_ui->pane_add_text(mod_ctx, panel, "Displays dynamic overhead health bars for active enemies.", nullptr);
     if (s_varHpBars != 0) {
         UiControlDesc ctrlHp = UI_CONTROL_DESC_INIT;
         ctrlHp.kind = UI_CONTROL_TOGGLE;
@@ -167,14 +167,15 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
         ctrlHp.config_var = s_varHpBars;
         svc_ui->pane_add_control(mod_ctx, panel, &ctrlHp, nullptr);
     }
-    if (s_varHpBarsBosses != 0) {
-        UiControlDesc ctrlHpBoss = UI_CONTROL_DESC_INIT;
-        ctrlHpBoss.kind = UI_CONTROL_TOGGLE;
-        ctrlHpBoss.label = "Boss & Miniboss HP Bars";
-        ctrlHpBoss.help_rml = "Toggle Top HUD Boss health bar for Bosses and Minibosses (Off by default).";
-        ctrlHpBoss.binding = UI_BINDING_CONFIG_VAR;
-        ctrlHpBoss.config_var = s_varHpBarsBosses;
-        svc_ui->pane_add_control(mod_ctx, panel, &ctrlHpBoss, nullptr);
+
+    if (s_varHpBarsShowNumbers != 0) {
+        UiControlDesc ctrlHpNum = UI_CONTROL_DESC_INIT;
+        ctrlHpNum.kind = UI_CONTROL_TOGGLE;
+        ctrlHpNum.label = "Show HP Numbers";
+        ctrlHpNum.help_rml = "Display numerical health values (e.g. 12/20) above enemy health bars (Off by default).";
+        ctrlHpNum.binding = UI_BINDING_CONFIG_VAR;
+        ctrlHpNum.config_var = s_varHpBarsShowNumbers;
+        svc_ui->pane_add_control(mod_ctx, panel, &ctrlHpNum, nullptr);
     }
 
     // --- Section 2: Floating 3D Damage Numbers ---
@@ -255,14 +256,16 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
             svc_config->subscribe(mod_ctx, s_varHpBars, on_hp_bars_changed, nullptr, nullptr);
         }
 
-        ConfigVarDesc descHpBoss = CONFIG_VAR_DESC_INIT;
-        descHpBoss.name = "hpBarsBossesEnabled";
-        descHpBoss.type = CONFIG_VAR_BOOL;
-        descHpBoss.default_bool = false;
-        if (svc_config->register_var(mod_ctx, &descHpBoss, &s_varHpBarsBosses) == MOD_OK) {
-            svc_config->get_bool(mod_ctx, s_varHpBarsBosses, &g_configHpBarsBossesEnabled);
-            svc_config->subscribe(mod_ctx, s_varHpBarsBosses, on_hp_bars_bosses_changed, nullptr, nullptr);
+        ConfigVarDesc descHpNum = CONFIG_VAR_DESC_INIT;
+        descHpNum.name = "hpBarsShowNumbers";
+        descHpNum.type = CONFIG_VAR_BOOL;
+        descHpNum.default_bool = false;
+        if (svc_config->register_var(mod_ctx, &descHpNum, &s_varHpBarsShowNumbers) == MOD_OK) {
+            svc_config->get_bool(mod_ctx, s_varHpBarsShowNumbers, &g_configHpBarsShowNumbers);
+            svc_config->subscribe(mod_ctx, s_varHpBarsShowNumbers, on_hp_bars_show_numbers_changed, nullptr, nullptr);
         }
+
+        g_configHpBarsBossesEnabled = false;
 
         ConfigVarDesc descDmg = CONFIG_VAR_DESC_INIT;
         descDmg.name = "damageNumbersEnabled";
