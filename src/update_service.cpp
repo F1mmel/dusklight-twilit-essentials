@@ -1,7 +1,10 @@
 #include "update_service.hpp"
 
+#ifdef _WIN32
 #include <windows.h>
 #include <wininet.h>
+#pragma comment(lib, "wininet.lib")
+#endif
 
 #include <string>
 #include <thread>
@@ -12,8 +15,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-
-#pragma comment(lib, "wininet.lib")
 
 bool g_configCheckForUpdatesEnabled = true;
 
@@ -46,6 +47,7 @@ static UiDialogHandle s_activeDialogHandle = 0;
 
 static std::string http_get(const std::string& url) {
     std::string response;
+#ifdef _WIN32
     HINTERNET hInternet = InternetOpenA("TwilitEssentialsUpdater", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
     if (!hInternet) {
         return response;
@@ -74,10 +76,24 @@ static std::string http_get(const std::string& url) {
         InternetCloseHandle(hConnect);
     }
     InternetCloseHandle(hInternet);
+#else
+    std::string cmd = "curl -s -L -H \"User-Agent: TwilitEssentialsModUpdater\" -H \"Accept: application/vnd.github.v3+json\" \"" + url + "\"";
+    FILE* fp = popen(cmd.c_str(), "r");
+    if (fp) {
+        char buffer[4096];
+        size_t n;
+        while ((n = fread(buffer, 1, sizeof(buffer) - 1, fp)) > 0) {
+            buffer[n] = '\0';
+            response.append(buffer, n);
+        }
+        pclose(fp);
+    }
+#endif
     return response;
 }
 
 static bool download_file(const std::string& url, const std::string& destPath) {
+#ifdef _WIN32
     HINTERNET hInternet = InternetOpenA("TwilitEssentialsUpdater", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
     if (!hInternet) {
         return false;
@@ -122,6 +138,11 @@ static bool download_file(const std::string& url, const std::string& destPath) {
     InternetCloseHandle(hConnect);
     InternetCloseHandle(hInternet);
     return success;
+#else
+    std::string cmd = "curl -s -L -H \"User-Agent: TwilitEssentialsModUpdater\" -o \"" + destPath + "\" \"" + url + "\"";
+    int ret = std::system(cmd.c_str());
+    return ret == 0;
+#endif
 }
 
 static bool parse_github_release_json(const std::string& json, std::string& outTagName, std::string& outDownloadUrl) {
