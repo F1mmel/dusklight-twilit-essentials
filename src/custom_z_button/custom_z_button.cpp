@@ -286,7 +286,15 @@ static bool isMidnaUnlocked() {
     if (isWolfPlayer()) {
         return true;
     }
-    return dComIfGs_getTransformStatus() != 0;
+    if (dComIfGs_getTransformStatus() != 0) {
+        return true;
+    }
+    if (dComIfGs_isEventBit(0x0520) || dComIfGs_isEventBit(0x0510) ||
+        dComIfGs_isEventBit(0x0501) || dComIfGs_isEventBit(0x0640) ||
+        dComIfGs_isEventBit(0x0504) || dComIfGs_isEventBit(0x0502)) {
+        return true;
+    }
+    return false;
 }
 
 static bool is_pause_menu_open(dMeter2Draw_c* draw = nullptr) {
@@ -813,7 +821,7 @@ static HookAction on_set_select_item_index_pre(ModContext*, void* args, void*, v
 }
 
 static HookAction on_midna_talk_trigger_pre(ModContext*, void* args, void* ret, void*) {
-    if (!g_configCustomZButtonEnabled || !args || !ret || !isMidnaUnlocked()) {
+    if (!g_configCustomZButtonEnabled || !args || !ret) {
         return HOOK_CONTINUE;
     }
 
@@ -824,6 +832,11 @@ static HookAction on_midna_talk_trigger_pre(ModContext*, void* args, void* ret, 
     }
 
     BOOL& r = *reinterpret_cast<BOOL*>(ret);
+    if (!isMidnaUnlocked()) {
+        r = 0;
+        return HOOK_SKIP_ORIGINAL;
+    }
+
     r = s_dpadLeftTrig ? 1 : 0;
     return HOOK_SKIP_ORIGINAL;
 }
@@ -1036,10 +1049,10 @@ static void on_pad_read_post(ModContext*, void*, void*, void*) {
     pad.mButtonFlags &= ~PAD_TRIGGER_Z;
     pad.mPressedButtonFlags &= ~PAD_TRIGGER_Z;
 
-    // Re-inject Z when either D-Pad Left or physical Z/R1 is held or triggered
-    if (!isMenuOrPause && (s_dpadLeftHeld || s_dpadLeftTrig || physZHeld || physZTrig)) {
-        if (s_dpadLeftHeld || physZHeld) pad.mButtonFlags |= PAD_TRIGGER_Z;
-        if (s_dpadLeftTrig || physZTrig) pad.mPressedButtonFlags |= PAD_TRIGGER_Z;
+    // Re-inject Z ONLY when D-Pad Left is held/triggered (D-Pad Left calls Midna)
+    if (!isMenuOrPause) {
+        if (s_dpadLeftHeld) pad.mButtonFlags |= PAD_TRIGGER_Z;
+        if (s_dpadLeftTrig) pad.mPressedButtonFlags |= PAD_TRIGGER_Z;
 
         if (!isWolfPlayer() && s_zInventorySlot != 0xFF) {
             u8 zItem = dComIfGs_getItem(s_zInventorySlot, false);
