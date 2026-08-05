@@ -27,6 +27,8 @@ static ModContext* s_modCtx = nullptr;
 static bool s_dpadDownHeld = false;
 static bool s_dpadDownTrig = false;
 
+static bool s_actionAvailable = false;
+
 static J2DPicture* s_horseCallPic = nullptr;
 static bool s_horseTextureLoaded = false;
 
@@ -126,7 +128,7 @@ static void on_pad_read_horse_call_post(ModContext*, void*, void*, void*) {
 
         if (s_dpadDownTrig) {
             daAlink_c* alink = static_cast<daAlink_c*>(daPy_getLinkPlayerActorClass());
-            if (alink != nullptr && !alink->checkWolf() && dComIfGs_getLife() > 0) {
+            if (alink != nullptr && s_actionAvailable) {
                 if (isHorseCallUnlocked()) {
                     u8 oldGpItem = dComIfGp_getSelectItem(2);
                     g_dComIfG_gameInfo.play.setSelectItem(2, dItemNo_HORSE_FLUTE_e);
@@ -142,6 +144,8 @@ static void on_pad_read_horse_call_post(ModContext*, void*, void*, void*) {
                 } else {
                     Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
                 }
+            } else if (alink != nullptr) {
+                Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
             }
         }
     }
@@ -187,6 +191,12 @@ static void on_meter2_draw_horse_call_post(ModContext*, void* args, void*, void*
     f32 drawY = bounds.i.y + 33.0f;
 
     u8 alpha = juji->getAlpha();
+
+    J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
+    alpha = midnaPane->getAlpha();
+
+    s_actionAvailable = alpha == 255;
+
     s_horseCallPic->setAlpha(alpha);
     s_horseCallPic->draw(drawX, drawY, targetW, targetH, false, false, false);
 }
