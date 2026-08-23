@@ -9,8 +9,12 @@ struct LogService;
 struct ModContext;
 
 extern bool g_configVisibleEquipmentEnabled;
-extern int g_configVisibleEquipDisplayMode; // 0 = When Equipped, 1 = Permanently (When Unlocked)
-extern bool g_configVisibleEquipMirrorBow;  // false = Top-Right to Bottom-Left, true = Top-Left to Bottom-Right
+extern int g_configVisibleEquipDisplayMode;
+extern bool g_configVisibleEquipMirrorBow;
+
+extern bool g_configVisibleEquipShowBow;
+extern bool g_configVisibleEquipShowLantern;
+extern bool g_configVisibleEquipShowHorseCall;
 
 ModResult init_visible_equipment(const HookService* hook_svc, ModError* err);
 void update_visible_equipment(const LogService* log_svc, ModContext* mod_ctx);

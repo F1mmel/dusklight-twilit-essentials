@@ -5,7 +5,6 @@
 struct HookService;
 
 extern bool g_configHpBarsEnabled;
-extern bool g_configHpBarsBossesEnabled;
 extern bool g_configHpBarsShowNumbers;
 
 ModResult init_hp_bars(const HookService* hook_svc, ModError* error);

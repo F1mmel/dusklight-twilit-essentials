@@ -20,6 +20,7 @@
 
 bool g_configDpadHorseCallEnabled = false;
 bool g_configDpadHorseCallAllowAnytime = false;
+bool g_configDpadHorseCallRequireEquipped = false;
 
 static const LogService* s_logSvc = nullptr;
 static ModContext* s_modCtx = nullptr;
@@ -54,13 +55,37 @@ static bool isWolfPlayer() {
     return false;
 }
 
+static bool isHorseCallItem(u8 itemNo) {
+    return itemNo == dItemNo_HORSE_FLUTE_e || itemNo == 0x4F || itemNo == 0x84;
+}
+
+static bool isHorseCallEquipped() {
+    u8 slot0 = dComIfGp_getSelectItem(0);
+    u8 slot1 = dComIfGp_getSelectItem(1);
+    u8 slot2 = dComIfGp_getSelectItem(2);
+
+    if (isHorseCallItem(slot0) || isHorseCallItem(slot1) || isHorseCallItem(slot2)) {
+        return true;
+    }
+
+    u8 zSlot = dComIfGs_getSelectItemIndex(2);
+    if (zSlot != 0xFF && zSlot != 0x00 && zSlot < 24) {
+        u8 zItem = dComIfGs_getItem(zSlot, false);
+        if (isHorseCallItem(zItem)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static bool isHorseCallUnlocked() {
     if (g_configDpadHorseCallAllowAnytime) {
         return true;
     }
     for (u8 slot = 0; slot < 24; slot++) {
         u8 item = dComIfGs_getItem(slot, false);
-        if (item == 0x4F || item == dItemNo_HORSE_FLUTE_e) {
+        if (isHorseCallItem(item)) {
             return true;
         }
     }
@@ -128,22 +153,19 @@ static void on_pad_read_horse_call_post(ModContext*, void*, void*, void*) {
 
         if (s_dpadDownTrig) {
             daAlink_c* alink = static_cast<daAlink_c*>(daPy_getLinkPlayerActorClass());
-            if (alink != nullptr && s_actionAvailable) {
-                if (isHorseCallUnlocked()) {
-                    u8 oldGpItem = dComIfGp_getSelectItem(2);
-                    g_dComIfG_gameInfo.play.setSelectItem(2, dItemNo_HORSE_FLUTE_e);
+            bool canCall = isHorseCallUnlocked() && (!g_configDpadHorseCallRequireEquipped || isHorseCallEquipped());
+            if (alink != nullptr && s_actionAvailable && canCall) {
+                u8 oldGpItem = dComIfGp_getSelectItem(2);
+                g_dComIfG_gameInfo.play.setSelectItem(2, dItemNo_HORSE_FLUTE_e);
 
-                    int proc_type = alink->checkNewItemChange(2);
-                    if (proc_type != 0) {
-                        alink->changeItemTriggerKeepProc(2, proc_type);
-                    } else {
-                        Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-                    }
-
-                    g_dComIfG_gameInfo.play.setSelectItem(2, oldGpItem);
+                int proc_type = alink->checkNewItemChange(2);
+                if (proc_type != 0) {
+                    alink->changeItemTriggerKeepProc(2, proc_type);
                 } else {
                     Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
                 }
+
+                g_dComIfG_gameInfo.play.setSelectItem(2, oldGpItem);
             } else if (alink != nullptr) {
                 Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
             }
@@ -151,7 +173,11 @@ static void on_pad_read_horse_call_post(ModContext*, void*, void*, void*) {
     }
 }
 
+static dMeter2Draw_c* s_lastDraw = nullptr;
+static J2DScreen* s_lastScreen = nullptr;
+
 static void on_meter2_draw_horse_call_post(ModContext*, void* args, void*, void*) {
+    s_actionAvailable = false;
     if (!args || !g_configDpadHorseCallEnabled || isTitleOrMainMenu()) {
         return;
     }
@@ -161,11 +187,22 @@ static void on_meter2_draw_horse_call_post(ModContext*, void* args, void*, void*
         return;
     }
 
+    J2DScreen* screen = draw->getMainScreenPtr();
+    if (draw != s_lastDraw || screen != s_lastScreen) {
+        s_lastDraw = draw;
+        s_lastScreen = screen;
+        s_horseCallPic = nullptr;
+        s_horseTextureLoaded = false;
+    }
+
     if (!isHorseCallUnlocked()) {
         return;
     }
 
-    J2DScreen* screen = draw->getMainScreenPtr();
+    if (g_configDpadHorseCallRequireEquipped && !isHorseCallEquipped()) {
+        return;
+    }
+
     J2DPane* juji = screen->search(MULTI_CHAR('juji_n'));
     if (juji == nullptr || !juji->isVisible() || juji->getAlpha() == 0) {
         return;
@@ -193,7 +230,9 @@ static void on_meter2_draw_horse_call_post(ModContext*, void* args, void*, void*
     u8 alpha = juji->getAlpha();
 
     J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
-    alpha = midnaPane->getAlpha();
+    if (midnaPane != nullptr) {
+        alpha = midnaPane->getAlpha();
+    }
 
     s_actionAvailable = alpha == 255;
 
@@ -203,8 +242,8 @@ static void on_meter2_draw_horse_call_post(ModContext*, void* args, void*, void*
 
 ModResult init_horse_call(const HookService* hook_svc, ModError*) {
     if (hook_svc) {
-        mods::hook_add_post<PadReadHorseCallHook>(hook_svc, on_pad_read_horse_call_post);
-        mods::hook_add_post<Meter2DrawHorseCallHook>(hook_svc, on_meter2_draw_horse_call_post);
+        mods::hook::add_post<PadReadHorseCallHook>(hook_svc, on_pad_read_horse_call_post);
+        mods::hook::add_post<Meter2DrawHorseCallHook>(hook_svc, on_meter2_draw_horse_call_post);
     }
     return MOD_OK;
 }
@@ -224,4 +263,5 @@ void shutdown_horse_call() {
     s_horseTextureLoaded = false;
     s_dpadDownHeld = false;
     s_dpadDownTrig = false;
+    s_actionAvailable = false;
 }

@@ -319,7 +319,6 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
         return;
     }
 
-    // 1. Show update prompt dialog when update is detected
     if (s_updateAvailable && !s_dialogShown) {
         auto now = std::chrono::steady_clock::now();
         if (std::chrono::duration_cast<std::chrono::milliseconds>(now - s_updateDetectedTime).count() < 1000) {
@@ -362,7 +361,7 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
         ui_svc->dialog_push(mod_ctx, &desc, &s_activeDialogHandle);
     }
 
-    // Handle completion of file download
+    // Handle download state
     DownloadState state = s_downloadState.load();
     if (state == DL_SUCCESS) {
         s_downloadState = DL_HANDLED;

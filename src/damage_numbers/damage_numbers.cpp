@@ -7,7 +7,7 @@
 #include <cmath>
 #include <cstdlib>
 
-#include "mods/hook.hpp"
+#include "mods/svc/hook.hpp"
 #include "mods/service.hpp"
 #include "mods/svc/hook.h"
 #include "mods/svc/log.h"
@@ -45,7 +45,7 @@ static std::vector<DamagePopup> s_damagePopups;
 
 DEFINE_HOOK(&dMeter2Draw_c::draw, Meter2DrawDmg);
 
-// Draws using the game's resident font. Calls setup2D() afterwards so 3D rendering doesn't break.
+// Text rendering with GX 2D restore
 static void draw_damage_text(const char* text, f32 x, f32 y, f32 charW, f32 charH, JUtility::TColor color) {
     JUTFont* font = mDoExt_getSubFont();
     if (!font) {
@@ -114,7 +114,7 @@ static void* trackEnemyDamageCallback(void* pActor, void*) {
                     popup.worldPos.y += 100.0f;
                 }
 
-                // Scatter a bit so stacked numbers don't completely overlap
+                // Offset for overlap
                 f32 randX = (static_cast<f32>(std::rand() % 30) - 15.0f);
                 f32 randZ = (static_cast<f32>(std::rand() % 30) - 15.0f);
                 popup.worldPos.x += randX;
@@ -191,7 +191,7 @@ static void on_meter2_draw(ModContext*, void*, void*, void*) {
             u8 alpha = static_cast<u8>(alphaF * 255.0f);
             if (alpha == 0) continue;
 
-            // Quick pop-in scale on spawn
+            // Pop-in animation
             f32 popScale = 1.0f;
             if (popup.currentFrame < 5) {
                 popScale = 1.3f - (static_cast<f32>(popup.currentFrame) * 0.06f);
@@ -223,7 +223,7 @@ ModResult init_damage_numbers(const HookService* hook_svc, ModError*) {
     s_damagePopups.clear();
 
     if (hook_svc) {
-        mods::hook_add_post<Meter2DrawDmg>(hook_svc, on_meter2_draw);
+        mods::hook::add_post<Meter2DrawDmg>(hook_svc, on_meter2_draw);
     }
     return MOD_OK;
 }

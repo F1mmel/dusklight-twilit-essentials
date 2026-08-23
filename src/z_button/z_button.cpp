@@ -1,0 +1,79 @@
+#include "z_button.hpp"
+
+// Sub-module implementation includes
+#include "z_common.cpp"
+#include "midna_location.cpp"
+#include "change_input.cpp"
+#include "alpha_itemwheel_zbutton.cpp"
+#include "z_item_actions.cpp"
+#include "z_draw.cpp"
+
+ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, ModContext* mod_ctx, ModError*) {
+    g_zLogSvc = log_svc;
+    g_zModCtx = mod_ctx;
+
+    if (!hook_svc)
+        return MOD_OK;
+
+    mods::hook::add_post<PadReadHook>(hook_svc, on_pad_read_post);
+    mods::hook::add_pre<SetActiveCursorHook>(hook_svc, on_set_active_cursor_pre);
+    mods::hook::add_post<SetActiveCursorHook>(hook_svc, on_set_active_cursor_post);
+    mods::hook::add_post<CheckStatusHook>(hook_svc, on_check_status_post);
+    mods::hook::add_post<Meter2ExecuteHook>(hook_svc, on_meter2_execute_post);
+    mods::hook::add_post<Meter2DrawDrawHook>(hook_svc, on_meter2_draw_draw_post);
+    mods::hook::add_pre<MidonaAlphaHook>(hook_svc, on_set_button_icon_midona_alpha_pre);
+    mods::hook::add_pre<ButtonIconAlphaHook>(hook_svc, on_set_button_icon_alpha_pre);
+    mods::hook::add_pre<ChangeTextureItemXYHook>(hook_svc, on_change_texture_item_xy_pre);
+    mods::hook::add_post<MoveButtonXYHook>(hook_svc, on_move_button_xy_post);
+    mods::hook::add_post<OrderTalkHook>(hook_svc, on_order_talk_post);
+    mods::hook::add_pre<CheckItemSetButtonHook>(hook_svc, on_check_item_set_button_pre);
+    mods::hook::add_pre<CheckSetItemTriggerHook>(hook_svc, on_check_set_item_trigger_pre);
+    mods::hook::add_pre<SetHeavyBootsHook>(hook_svc, on_set_heavy_boots_pre);
+    mods::hook::add_pre<CheckItemButtonChangeHook>(hook_svc, on_check_item_button_change_pre);
+    mods::hook::add_pre<CheckItemChangeFromButtonHook>(hook_svc, on_check_item_change_from_button_pre);
+    mods::hook::add_pre<MidnaTalkTriggerHook>(hook_svc, on_midna_talk_trigger_pre);
+    mods::hook::add_post<SetStickDataHook>(hook_svc, on_set_stick_data_post);
+    mods::hook::add_pre<SetSelectItemIndexHook>(hook_svc, on_set_select_item_index_pre);
+    mods::hook::add_post<DrawButtonZHook>(hook_svc, on_draw_button_z_post);
+
+    return MOD_OK;
+}
+
+void update_z_button(const LogService* log_svc, ModContext* mod_ctx) {
+    g_zLogSvc = log_svc;
+    g_zModCtx = mod_ctx;
+
+    if (!g_configCustomZButtonEnabled || isTitleOrMainMenu()) {
+        shutdown_z_button();
+        return;
+    }
+
+    if (g_configCustomZButtonEnabled) {
+        f32 scale = 0.85f;
+        g_drawHIO.mMidnaIconScale = scale;
+
+        g_drawHIO.mButtonZItemPosX = 0.0f;
+        g_drawHIO.mButtonZItemPosY = 0.0f;
+        g_drawHIO.mButtonZItemScale = 1.0f;
+
+        if (!isWolfPlayer()) {
+            update_z_item_texture();
+        }
+    }
+}
+
+void shutdown_z_button() {
+    g_zKanteraIcon = nullptr;
+
+    g_drawDigitPic[0] = nullptr;
+    g_drawDigitPic[1] = nullptr;
+    g_drawDigitPic[2] = nullptr;
+
+    g_cachedZMainPic = nullptr;
+    g_lastLoadedZItem = 0xFF;
+
+    g_dpadLeftHeld = false;
+    g_dpadLeftTrig = false;
+
+    reset_midna_pane();
+}
