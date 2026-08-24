@@ -314,8 +314,8 @@ ModResult init_update_service(const LogService* log_svc, ModContext* mod_ctx, co
     return MOD_OK;
 }
 
-void update_update_service(const LogService*, ModContext* mod_ctx, const UiService* ui_svc) {
-    if (!g_configCheckForUpdatesEnabled || !ui_svc) {
+void update_update_service(const LogService* log_svc, ModContext* mod_ctx, const UiService* ui_svc) {
+    if (!g_configCheckForUpdatesEnabled || !ui_svc || !mod_ctx) {
         return;
     }
 
@@ -324,8 +324,6 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
         if (std::chrono::duration_cast<std::chrono::milliseconds>(now - s_updateDetectedTime).count() < 1000) {
             return;
         }
-
-        s_dialogShown = true;
 
         std::string latestTag;
         {
@@ -339,12 +337,14 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
                       "Latest Release: <b>" + latestTag + "</b><br/><br/>"
                       "Would you like to automatically download and update the mod file now?";
 
-        static UiDialogAction s_actions[2];
+        static UiDialogAction s_actions[2] = {UI_DIALOG_ACTION_INIT, UI_DIALOG_ACTION_INIT};
+        s_actions[0].struct_size = sizeof(UiDialogAction);
         s_actions[0].label = "Yes";
         s_actions[0].on_pressed = on_update_confirmed;
         s_actions[0].user_data = nullptr;
         s_actions[0].keep_open = false;
 
+        s_actions[1].struct_size = sizeof(UiDialogAction);
         s_actions[1].label = "No";
         s_actions[1].on_pressed = nullptr;
         s_actions[1].user_data = nullptr;
@@ -358,14 +358,28 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
         desc.actions = s_actions;
         desc.action_count = 2;
 
-        ui_svc->dialog_push(mod_ctx, &desc, &s_activeDialogHandle);
+        ModResult res = ui_svc->dialog_push(mod_ctx, &desc, &s_activeDialogHandle);
+        if (res == MOD_OK) {
+            s_dialogShown = true;
+            if (log_svc) {
+                log_svc->info(mod_ctx, "[Updater] Update dialog shown successfully.");
+            }
+
+            // Also push a subtle toast notification
+            static std::string s_toastRml;
+            s_toastRml = "Update available: <b>" + latestTag + "</b>";
+            UiToastDesc toast = UI_TOAST_DESC_INIT;
+            toast.type = "warning";
+            toast.title_rml = "Twilit Essentials";
+            toast.body_rml = s_toastRml.c_str();
+            toast.duration_ms = 6000;
+            ui_svc->push_toast(mod_ctx, &toast);
+        }
     }
 
     // Handle download state
     DownloadState state = s_downloadState.load();
     if (state == DL_SUCCESS) {
-        s_downloadState = DL_HANDLED;
-
         std::string latestTag;
         {
             std::lock_guard<std::mutex> lock(s_mutex);
@@ -377,7 +391,8 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
                        "The mod file was successfully replaced.<br/>"
                        "Please restart Dusklight to apply the update.";
 
-        static UiDialogAction s_okAction;
+        static UiDialogAction s_okAction = UI_DIALOG_ACTION_INIT;
+        s_okAction.struct_size = sizeof(UiDialogAction);
         s_okAction.label = "OK";
         s_okAction.on_pressed = nullptr;
         s_okAction.user_data = nullptr;
@@ -392,15 +407,16 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
         desc.action_count = 1;
 
         UiDialogHandle hDialog = 0;
-        ui_svc->dialog_push(mod_ctx, &desc, &hDialog);
+        if (ui_svc->dialog_push(mod_ctx, &desc, &hDialog) == MOD_OK) {
+            s_downloadState = DL_HANDLED;
+        }
     } else if (state == DL_FAILED) {
-        s_downloadState = DL_HANDLED;
-
         static std::string s_failRml;
         s_failRml = "Failed to download the update package from GitHub.<br/>"
                     "Please check your internet connection or update manually.";
 
-        static UiDialogAction s_okAction;
+        static UiDialogAction s_okAction = UI_DIALOG_ACTION_INIT;
+        s_okAction.struct_size = sizeof(UiDialogAction);
         s_okAction.label = "OK";
         s_okAction.on_pressed = nullptr;
         s_okAction.user_data = nullptr;
@@ -415,7 +431,9 @@ void update_update_service(const LogService*, ModContext* mod_ctx, const UiServi
         desc.action_count = 1;
 
         UiDialogHandle hDialog = 0;
-        ui_svc->dialog_push(mod_ctx, &desc, &hDialog);
+        if (ui_svc->dialog_push(mod_ctx, &desc, &hDialog) == MOD_OK) {
+            s_downloadState = DL_HANDLED;
+        }
     }
 }
 
