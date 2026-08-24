@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SYMGEN_VERSION: v1.2.4
+  SYMGEN_VERSION: v1.3.2
 
 jobs:
   build:

@@ -2,7 +2,8 @@ file(READ "${MOD_JSON_PATH}" MOD_JSON_CONTENT)
 string(JSON TWILIT_ESSENTIALS_VER GET "${MOD_JSON_CONTENT}" "version")
 
 file(READ "${README_PATH}" README_CONTENT)
-string(REGEX REPLACE "# Twilit Essentials v[0-9]+\\.[0-9]+\\.[0-9]+" "# Twilit Essentials v${TWILIT_ESSENTIALS_VER}" NEW_README_CONTENT "${README_CONTENT}")
+string(REGEX REPLACE "# Twilit Essentials \\(v[0-9]+\\.[0-9]+\\.[0-9]+\\)" "# Twilit Essentials (v${TWILIT_ESSENTIALS_VER})" NEW_README_CONTENT "${README_CONTENT}")
+string(REGEX REPLACE "# Twilit Essentials v[0-9]+\\.[0-9]+\\.[0-9]+" "# Twilit Essentials (v${TWILIT_ESSENTIALS_VER})" NEW_README_CONTENT "${NEW_README_CONTENT}")
 
 if (NOT "${README_CONTENT}" STREQUAL "${NEW_README_CONTENT}")
     file(WRITE "${README_PATH}" "${NEW_README_CONTENT}")
