@@ -140,7 +140,7 @@ HookAction on_check_item_button_change_pre(ModContext*, void* args, void*, void*
 
     sync_play_select_item(2);
 
-    if (link->mProcID != daAlink_c::PROC_CANOE_PADDLE_PUT &&
+    if (!link->checkCanoeRide() &&
         link->mEquipItem != dItemNo_NONE_e &&
         !link->checkEquipAnime())
     {
@@ -226,8 +226,9 @@ void on_order_talk_post(ModContext*, void* args, void* ret, void*) {
         return;
     }
 
-    dAttList_c* attList2 = *reinterpret_cast<dAttList_c**>(reinterpret_cast<uintptr_t>(alink) + 0x27E8);
-    fopAc_ac_c* targetActor = *reinterpret_cast<fopAc_ac_c**>(reinterpret_cast<uintptr_t>(alink) + 0x27F8);
+    dAttention_c* att = dComIfGp_getAttention();
+    dAttList_c* attList2 = (att != nullptr) ? att->getActionBtnXY() : nullptr;
+    fopAc_ac_c* targetActor = (attList2 != nullptr) ? attList2->getActor() : nullptr;
 
     if (daPy_py_c::checkTradeItem(zItem) && alink->itemTriggerCheck(0x04) && attList2 != nullptr && targetActor != nullptr) {
         if (alink->checkRequestTalkActor(attList2, targetActor)) {

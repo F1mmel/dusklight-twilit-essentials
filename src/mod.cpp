@@ -398,14 +398,18 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
 
     // Z Button
     svc_ui->pane_add_section(mod_ctx, panel, "Z Button Item Slot");
-    svc_ui->pane_add_text(mod_ctx, panel, "Assign items to Z with a 3rd wheel slot. Midna calls move to D-Pad Left.\n(Note: Restart game after toggling this).", nullptr);
-    if (s_varCustomZButton != 0) {
-        UiControlDesc ctrlZ = UI_CONTROL_DESC_INIT;
-        ctrlZ.kind = UI_CONTROL_TOGGLE;
-        ctrlZ.label = "Enabled";
-        ctrlZ.binding = UI_BINDING_CONFIG_VAR;
-        ctrlZ.config_var = s_varCustomZButton;
-        svc_ui->pane_add_control(mod_ctx, panel, &ctrlZ, nullptr);
+    if (isNativeZButtonEngine()) {
+        svc_ui->pane_add_rml(mod_ctx, panel, "<span style=\"color: #a8bcd4;\">This Dusklight build (Lazy Tweaks) already provides 3-slot Z-button support natively in the engine.</span>", nullptr);
+    } else {
+        svc_ui->pane_add_text(mod_ctx, panel, "Assign items to Z with a 3rd wheel slot. Midna calls move to D-Pad Left.\n(Note: Restart game after toggling this).", nullptr);
+        if (s_varCustomZButton != 0) {
+            UiControlDesc ctrlZ = UI_CONTROL_DESC_INIT;
+            ctrlZ.kind = UI_CONTROL_TOGGLE;
+            ctrlZ.label = "Enabled";
+            ctrlZ.binding = UI_BINDING_CONFIG_VAR;
+            ctrlZ.config_var = s_varCustomZButton;
+            svc_ui->pane_add_control(mod_ctx, panel, &ctrlZ, nullptr);
+        }
     }
 
     // Horse Call

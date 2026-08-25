@@ -2,6 +2,7 @@
 
 #include "JSystem/J3DGraphAnimator/J3DModel.h"
 #include "d/actor/d_a_alink.h"
+#include "d/actor/d_a_horse.h"
 #include "d/d_com_inf_game.h"
 #include "d/d_item_data.h"
 #include "d/d_kankyo.h"
@@ -36,9 +37,38 @@ inline s16 degToS16(f32 deg) {
   return static_cast<s16>(deg * (65536.0f / 360.0f));
 }
 
+extern bool isNativeZButtonEngine();
+
+static u32 getLinkShadowId(daAlink_c *alink) {
+  if (alink == nullptr) {
+    return 0;
+  }
+
+  // When Link is riding Epona, the horse holds the active real shadow ID
+  if (alink->checkHorseRide()) {
+    daHorse_c *horse = reinterpret_cast<daHorse_c *>(dComIfGp_getHorseActor());
+    if (horse != nullptr) {
+      return horse->getShadowID();
+    }
+  }
+
+  const u8 *basePtr = reinterpret_cast<const u8 *>(&alink->field_0x31a4);
+
+  // Lazy Tweaks expands mItemHeap[2] to [3], shifting field_0x31a4 by +sizeof(daPy_anmHeap_c) (+0x20 on x64)
+  if (isNativeZButtonEngine()) {
+    return *reinterpret_cast<const u32 *>(basePtr + sizeof(daPy_anmHeap_c));
+  }
+
+  // Official Upstream Dusklight
+  return static_cast<u32>(alink->field_0x31a4);
+}
+
 static void addModelShadow(daAlink_c *alink, J3DModel *model) {
-  if (alink != nullptr && model != nullptr && alink->field_0x31a4 != 0) {
-    dComIfGd_addRealShadow(static_cast<u32>(alink->field_0x31a4), model);
+  if (alink != nullptr && model != nullptr) {
+    u32 shadowId = getLinkShadowId(alink);
+    if (shadowId != 0) {
+      dComIfGd_addRealShadow(shadowId, model);
+    }
   }
 }
 
@@ -52,8 +82,7 @@ static bool isWolfOrTransforming(daAlink_c *alink) {
   if (alink->checkWolfShapeReverse()) {
     return true;
   }
-  if (alink->mProcID == daAlink_c::PROC_METAMORPHOSE ||
-      alink->mProcID == daAlink_c::PROC_METAMORPHOSE_ONLY) {
+  if (alink->checkMetamorphose()) {
     return true;
   }
   return false;

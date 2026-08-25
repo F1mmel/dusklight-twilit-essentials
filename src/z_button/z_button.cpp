@@ -8,11 +8,51 @@
 #include "z_item_actions.cpp"
 #include "z_draw.cpp"
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
+bool isNativeZButtonEngine() {
+#if defined(_WIN32)
+    static int s_cachedResult = -1;
+    if (s_cachedResult != -1) {
+        return s_cachedResult == 1;
+    }
+    HMODULE hExe = GetModuleHandleA(nullptr);
+    if (hExe != nullptr) {
+        if (GetProcAddress(hExe, "?handleQuickTransform@daAlink_c@@QEAAXXZ") != nullptr ||
+            GetProcAddress(hExe, "?handleWolfHowl@daAlink_c@@QEAAXXZ") != nullptr ||
+            GetProcAddress(hExe, "?checkShieldCrouch@daAlink_c@@QEAAHXZ") != nullptr ||
+            GetProcAddress(hExe, "?setShieldCrouch@daAlink_c@@QEAAXXZ") != nullptr ||
+            GetProcAddress(hExe, "?loseRupees@daAlink_c@@QEAAXXZ") != nullptr ||
+            GetProcAddress(hExe, "?checkAimContext@daAlink_c@@QEAA_NXZ") != nullptr)
+        {
+            s_cachedResult = 1;
+            return true;
+        }
+    }
+    s_cachedResult = 0;
+    return false;
+#else
+    return false;
+#endif
+}
+
 ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, ModContext* mod_ctx, ModError*) {
     g_zLogSvc = log_svc;
     g_zModCtx = mod_ctx;
 
-    if (!hook_svc)
+    if (isNativeZButtonEngine()) {
+        if (log_svc) {
+            log_svc->info(mod_ctx, "Native 3-item / Z-button engine detected (Lazy Tweaks). Skipping custom Z-button hooks.");
+        }
+        return MOD_OK;
+    }
+
+    if (!hook_svc || !g_configCustomZButtonEnabled)
         return MOD_OK;
 
     mods::hook::add_post<PadReadHook>(hook_svc, on_pad_read_post);
@@ -40,6 +80,10 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
 }
 
 void update_z_button(const LogService* log_svc, ModContext* mod_ctx) {
+    if (isNativeZButtonEngine()) {
+        return;
+    }
+
     g_zLogSvc = log_svc;
     g_zModCtx = mod_ctx;
 
