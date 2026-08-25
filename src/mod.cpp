@@ -677,6 +677,7 @@ MOD_EXPORT ModResult mod_update(ModError*) {
     update_damage_numbers(svc_log, mod_ctx);
     update_visible_equipment(svc_log, mod_ctx);
     update_z_button(svc_log, mod_ctx);
+    check_iron_boots_unequip_on_overwrite();
     update_horse_call(svc_log, mod_ctx);
     update_sheathed_spin(svc_log, mod_ctx);
     update_puppet_zelda_pattern(svc_log, mod_ctx);

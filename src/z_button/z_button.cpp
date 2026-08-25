@@ -4,7 +4,7 @@
 #include "z_common.cpp"
 #include "midna_location.cpp"
 #include "change_input.cpp"
-#include "alpha_itemwheel_zbutton.cpp"
+#include "z_itemwheel.cpp"
 #include "z_item_actions.cpp"
 #include "z_draw.cpp"
 

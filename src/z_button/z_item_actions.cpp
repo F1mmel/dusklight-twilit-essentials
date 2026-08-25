@@ -15,25 +15,7 @@ bool item_needs_z_valid_button(int itemNo) {
     return itemNo == dItemNo_HVY_BOOTS_e || itemNo == dItemNo_SPINNER_e;
 }
 
-HookAction on_set_heavy_boots_pre(ModContext*, void* args, void* ret, void*) {
-    if (!g_configCustomZButtonEnabled || !args) {
-        return HOOK_CONTINUE;
-    }
-
-    daAlink_c* alink = mods::arg<daAlink_c*>(args, 0);
-    int enable = mods::arg<int>(args, 1);
-
-    if (alink != nullptr && enable == 0 && alink->checkEquipHeavyBoots()) {
-        if (resolved_select_item(2) == dItemNo_HVY_BOOTS_e) {
-            if (!alink->checkWolf() && !alink->checkHorseRide() && !alink->checkCanoeRide()
-                && !alink->checkSpinnerRide() && !alink->checkNotHeavyBootsStage())
-            {
-                if (ret) *reinterpret_cast<int*>(ret) = 0;
-                return HOOK_SKIP_ORIGINAL;
-            }
-        }
-    }
-
+HookAction on_set_heavy_boots_pre(ModContext*, void*, void*, void*) {
     return HOOK_CONTINUE;
 }
 
@@ -164,14 +146,20 @@ HookAction on_check_item_set_button_pre(ModContext*, void* args, void* retval, v
         return HOOK_CONTINUE;
     }
 
-    for (u8 i = 0; i < 3; ++i) {
-        if (link->checkGroupItem(itemNo, resolved_select_item(i))) {
-            *static_cast<int*>(retval) = i;
-            return HOOK_SKIP_ORIGINAL;
-        }
+    if (link->checkGroupItem(itemNo, resolved_select_item(0))) {
+        *static_cast<int*>(retval) = 0;
+        return HOOK_SKIP_ORIGINAL;
+    }
+    if (link->checkGroupItem(itemNo, resolved_select_item(1))) {
+        *static_cast<int*>(retval) = 1;
+        return HOOK_SKIP_ORIGINAL;
+    }
+    if (link->checkGroupItem(itemNo, resolved_select_item(2))) {
+        *static_cast<int*>(retval) = 3;
+        return HOOK_SKIP_ORIGINAL;
     }
 
-    *static_cast<int*>(retval) = 3;
+    *static_cast<int*>(retval) = 2;
     return HOOK_SKIP_ORIGINAL;
 }
 
@@ -237,6 +225,48 @@ void on_order_talk_post(ModContext*, void* args, void* ret, void*) {
         if (alink->checkRequestTalkActor(attList2, targetActor)) {
             fopAcM_orderTalkItemBtnEvent(8, alink, targetActor, 0, 0);
             *result = 1;
+        }
+    }
+}
+
+void check_iron_boots_unequip_on_overwrite() {
+    if (isTitleOrMainMenu()) return;
+
+    daAlink_c* link = static_cast<daAlink_c*>(daPy_getPlayerActorClass());
+    if (link == nullptr) return;
+
+    if (link->checkEquipHeavyBoots()) {
+        bool assigned = false;
+        for (int i = 0; i < 3; i++) {
+            u8 slotIdx = dComIfGs_getSelectItemIndex(i);
+            if (slotIdx == SLOT_3 || slotIdx == 3) {
+                assigned = true;
+                break;
+            }
+            if (slotIdx != 0xFF && slotIdx < 24) {
+                u8 item = dComIfGs_getItem(slotIdx, true);
+                if (link->checkGroupItem(dItemNo_HVY_BOOTS_e, item)) {
+                    assigned = true;
+                    break;
+                }
+            }
+            u8 playItem = dComIfGp_getSelectItem(i);
+            if (link->checkGroupItem(dItemNo_HVY_BOOTS_e, playItem)) {
+                assigned = true;
+                break;
+            }
+            if (!isNativeZButtonEngine()) {
+                if (link->checkGroupItem(dItemNo_HVY_BOOTS_e, resolved_select_item(i))) {
+                    assigned = true;
+                    break;
+                }
+            }
+        }
+
+        if (!assigned) {
+            if (!dComIfGp_checkPlayerStatus1(0, 0x10000) || !link->checkHookshotRoofLv7Boss()) {
+                link->setHeavyBoots(0);
+            }
         }
     }
 }

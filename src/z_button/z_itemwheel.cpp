@@ -1,6 +1,6 @@
 #pragma once
 
-#include "alpha_itemwheel_zbutton.hpp"
+#include "z_itemwheel.hpp"
 #include <d/d_menu_item_explain.h>
 
 DEFINE_HOOK(&dMenu_Ring_c::setActiveCursor, SetActiveCursorHook);
