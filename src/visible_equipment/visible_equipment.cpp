@@ -44,7 +44,6 @@ static u32 getLinkShadowId(daAlink_c *alink) {
     return 0;
   }
 
-  // When Link is riding Epona, the horse holds the active real shadow ID
   if (alink->checkHorseRide()) {
     daHorse_c *horse = reinterpret_cast<daHorse_c *>(dComIfGp_getHorseActor());
     if (horse != nullptr) {
@@ -53,13 +52,10 @@ static u32 getLinkShadowId(daAlink_c *alink) {
   }
 
   const u8 *basePtr = reinterpret_cast<const u8 *>(&alink->field_0x31a4);
-
-  // Lazy Tweaks expands mItemHeap[2] to [3], shifting field_0x31a4 by +sizeof(daPy_anmHeap_c) (+0x20 on x64)
   if (isNativeZButtonEngine()) {
     return *reinterpret_cast<const u32 *>(basePtr + sizeof(daPy_anmHeap_c));
   }
 
-  // Official Upstream Dusklight
   return static_cast<u32>(alink->field_0x31a4);
 }
 

@@ -13,32 +13,39 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#else
+#include <dlfcn.h>
 #endif
 
 bool isNativeZButtonEngine() {
-#if defined(_WIN32)
     static int s_cachedResult = -1;
     if (s_cachedResult != -1) {
         return s_cachedResult == 1;
     }
+
+#if defined(_WIN32)
     HMODULE hExe = GetModuleHandleA(nullptr);
     if (hExe != nullptr) {
-        if (GetProcAddress(hExe, "?handleQuickTransform@daAlink_c@@QEAAXXZ") != nullptr ||
-            GetProcAddress(hExe, "?handleWolfHowl@daAlink_c@@QEAAXXZ") != nullptr ||
-            GetProcAddress(hExe, "?checkShieldCrouch@daAlink_c@@QEAAHXZ") != nullptr ||
+        if (GetProcAddress(hExe, "?checkShieldCrouch@daAlink_c@@QEAAHXZ") != nullptr ||
             GetProcAddress(hExe, "?setShieldCrouch@daAlink_c@@QEAAXXZ") != nullptr ||
-            GetProcAddress(hExe, "?loseRupees@daAlink_c@@QEAAXXZ") != nullptr ||
-            GetProcAddress(hExe, "?checkAimContext@daAlink_c@@QEAA_NXZ") != nullptr)
+            GetProcAddress(hExe, "?loseRupees@daAlink_c@@QEAAXXZ") != nullptr)
         {
             s_cachedResult = 1;
             return true;
         }
     }
+#else
+    if (dlsym(RTLD_DEFAULT, "_ZN8daAlink_c17checkShieldCrouchEv") != nullptr ||
+        dlsym(RTLD_DEFAULT, "_ZN8daAlink_c15setShieldCrouchEv") != nullptr ||
+        dlsym(RTLD_DEFAULT, "_ZN8daAlink_c10loseRupeesEv") != nullptr)
+    {
+        s_cachedResult = 1;
+        return true;
+    }
+#endif
+
     s_cachedResult = 0;
     return false;
-#else
-    return false;
-#endif
 }
 
 ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, ModContext* mod_ctx, ModError*) {
@@ -75,6 +82,14 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     mods::hook::add_post<SetStickDataHook>(hook_svc, on_set_stick_data_post);
     mods::hook::add_pre<SetSelectItemIndexHook>(hook_svc, on_set_select_item_index_pre);
     mods::hook::add_post<DrawButtonZHook>(hook_svc, on_draw_button_z_post);
+    mods::hook::add_pre<SetMixItemHook>(hook_svc, on_set_mix_item_pre);
+    mods::hook::add_pre<SetItemHook>(hook_svc, on_set_item_pre);
+    mods::hook::add_pre<SetJumpItemHook>(hook_svc, on_set_jump_item_pre);
+    mods::hook::add_pre<SetSelectItemForceHook>(hook_svc, on_set_select_item_force_pre);
+    mods::hook::add_pre<IsMixItemOnHook>(hook_svc, on_is_mix_item_on_pre);
+    mods::hook::add_pre<IsMixItemOffHook>(hook_svc, on_is_mix_item_off_pre);
+    mods::hook::add_pre<CheckExplainForceHook>(hook_svc, on_check_explain_force_pre);
+    mods::hook::add_pre<GetSelectItemHook>(hook_svc, on_get_select_item_pre);
 
     return MOD_OK;
 }

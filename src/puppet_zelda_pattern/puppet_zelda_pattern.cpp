@@ -10,9 +10,9 @@ bool g_configPuppetZeldaAlwaysShortest = false;
 
 enum {
     ACTION_WAIT = 0,
-    ACTION_ATTACK_A = 1,  // Sword Dive Attack
-    ACTION_ATTACK_B = 2,  // Triangle Ground Attack
-    ACTION_ATTACK_C = 3,  // Energy Ball Throw Attack
+    ACTION_ATTACK_A = 1,  // Sword Dive
+    ACTION_ATTACK_B = 2,  // Triangle
+    ACTION_ATTACK_C = 3,  // Energy Ball
     ACTION_DAMAGE = 4,
 };
 
@@ -20,22 +20,22 @@ static fpc_ProcID s_lastZeldaId = fpcM_ERROR_PROCESS_ID_e;
 static s16 s_prevAction = ACTION_WAIT;
 static int s_zeldaPatternStep = 0;
 
-// 7-step deterministic cycle:
+// 7-step cycle:
 // Step 0: Energy Ball
-// Step 1: 1 Attack
+// Step 1: Attack
 // Step 2: Energy Ball
 // Step 3: Attack (1 of 3)
 // Step 4: Attack (2 of 3)
 // Step 5: Attack (3 of 3)
 // Step 6: Energy Ball
 static const bool s_isBallStep[7] = {
-    true,   // 0: Energy Ball
-    false,  // 1: 1 Attack
-    true,   // 2: Energy Ball
-    false,  // 3: Attack (1 of 3)
-    false,  // 4: Attack (2 of 3)
-    false,  // 5: Attack (3 of 3)
-    true    // 6: Energy Ball
+    true,   // 0
+    false,  // 1
+    true,   // 2
+    false,  // 3
+    false,  // 4
+    false,  // 5
+    true    // 6
 };
 
 ModResult init_puppet_zelda_pattern(const HookService*, ModError*) {

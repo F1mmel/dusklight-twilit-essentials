@@ -127,8 +127,10 @@ void update_z_item_texture(dMeter2Draw_c* draw) {
             g_cachedZMainPic = nullptr;
         }
 
+        g_zHasSecondLayer = (readResult > 1 || isComboItem);
+
         if (shinePic) {
-            if (readResult > 1 || isComboItem) {
+            if (g_zHasSecondLayer) {
                 shinePic->changeTexture(shineBuf, 0);
                 shinePic->show();
                 shinePic->setAlpha(255);
@@ -139,7 +141,7 @@ void update_z_item_texture(dMeter2Draw_c* draw) {
         dMeter2Info_setItemColor(zItem, mainPic, shinePic, nullptr, nullptr);
     } else {
         if (shinePic) {
-            if (isComboItem) {
+            if (g_zHasSecondLayer) {
                 shinePic->show();
                 shinePic->setAlpha(255);
             } else {
@@ -181,20 +183,26 @@ void update_z_item_texture(dMeter2Draw_c* draw) {
     pane->show();
     pane->setAlpha(255);
     mainPic->setAlpha(255);
-    if (shinePic && isComboItem) {
-        shinePic->setAlpha(255);
+    if (shinePic) {
+        if (g_zHasSecondLayer) {
+            shinePic->show();
+            shinePic->setAlpha(255);
+        } else {
+            shinePic->hide();
+        }
     }
 
     g_cachedZMainPic = mainPic;
     g_cachedZW = w;
     g_cachedZH = h;
 
-    J2DScreen* mainScreen = draw->getMainScreenPtr();
+    J2DScreen* mainScreen = (draw != nullptr) ? draw->getMainScreenPtr() : nullptr;
     if (mainScreen != nullptr) {
         J2DPane* itemRChild = mainScreen->search(MULTI_CHAR('r_itm_pp'));
         if (itemRChild != nullptr) {
-            if (isComboItem) {
+            if (g_zHasSecondLayer) {
                 itemRChild->show();
+                itemRChild->setAlpha(255);
             } else {
                 itemRChild->hide();
             }
@@ -205,6 +213,7 @@ void update_z_item_texture(dMeter2Draw_c* draw) {
 void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f32 iconW, f32 iconH, f32 alphaRate) {
     if (num < 0 || alphaRate <= 0.0f) return;
     if (num > 999) num = 999;
+    if (maxNum > 0 && num > maxNum) num = maxNum;
 
     if (g_drawDigitPic[0] == nullptr) {
         for (int i = 0; i < 3; i++) {
@@ -242,13 +251,7 @@ void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f32 iconW
         g_drawDigitPic[i]->setAlpha(a);
     }
 
-    if (num < 10) {
-        ResTIMG* t = get_timg(num);
-        if (t) {
-            g_drawDigitPic[0]->changeTexture(t, 0);
-            g_drawDigitPic[0]->draw(startX + iconW - (digitW * 0.9f), startY, digitW, digitH, false, false, false);
-        }
-    } else if (num < 100) {
+    if (num < 100) {
         ResTIMG* t1 = get_timg(num / 10);
         ResTIMG* t2 = get_timg(num % 10);
         if (t1 && t2) {
@@ -350,8 +353,19 @@ void draw_z_ammo_digits(dMeter2Draw_c* draw, f32 baseX, f32 baseY, f32 iconW, f3
         f32 baseSize = 42.0f;
         f32 w = texScale * baseSize;
         f32 widthShift = (w / 42.0f) * 24.0f;
+        f32 heightShift = 6.0f;
+        if (zItem == dItemNo_PACHINKO_e || zItem == 0x4B || zItem == 0x76) {
+            widthShift -= 20.0f;
+            heightShift -= 10.0f;
+        } else if (is_bomb_item(zItem) || zItem == dItemNo_BOMB_ARROW_e || zItem == 0x59) {
+            widthShift -= 12.0f;
+            heightShift -= 5.0f;
+        } else if (zItem == dItemNo_BOW_e || zItem == dItemNo_HAWK_ARROW_e || zItem == 0x43 || zItem == 0x53 || zItem == 0x54 || zItem == 0x55 || zItem == 0x56 || zItem == 0x5A) {
+            widthShift -= 10.0f;
+            heightShift -= 1.0f;
+        }
         baseX += widthShift;
-        baseY += 6.0f;
+        baseY += heightShift;
     }
 
     int count    = -1;
@@ -359,61 +373,36 @@ void draw_z_ammo_digits(dMeter2Draw_c* draw, f32 baseX, f32 baseY, f32 iconW, f3
 
     // Bomb Arrow
     if (zItem == dItemNo_BOMB_ARROW_e || zItem == 0x59) {
-        int arrowNum = dComIfGs_getArrowNum();
-        u8 bombSlot = 0xFF;
-        if (g_zInventorySlot >= 15 && g_zInventorySlot < 18) {
-            bombSlot = g_zInventorySlot;
-        } else if (g_zMixSlot >= 15 && g_zMixSlot < 18) {
-            bombSlot = g_zMixSlot;
-        } else {
-            for (u8 i = 0; i < 3; i++) {
-                if (dComIfGs_getBombNum(i) > 0) {
-                    bombSlot = 15 + i;
-                    break;
-                }
-            }
-            if (bombSlot == 0xFF) bombSlot = 15;
-        }
-        int bombNum = dComIfGs_getBombNum(bombSlot - 15);
-        count = (bombNum < arrowNum) ? bombNum : arrowNum;
-        maxCount = dComIfGs_getArrowMax();
+        u8 bombSlot = dComIfGs_getSelectMixItemNoArrowIndex(2);
+        u8 bagIdx = (bombSlot >= 15 && bombSlot < 18) ? (bombSlot - 15) : 0;
+        u8 bombType = dComIfGs_getItem((u8)(bagIdx + 15), false);
+        count = dComIfGs_getBombNum(bagIdx);
+        maxCount = dComIfGs_getBombMax(bombType);
     }
-    // Bow and other variants
+    // Bow
     else if (zItem == dItemNo_BOW_e || zItem == dItemNo_HAWK_ARROW_e || zItem == 0x43 || zItem == 0x53 || zItem == 0x54 || zItem == 0x55 || zItem == 0x56 || zItem == 0x5A) {
         count    = dComIfGs_getArrowNum();
         maxCount = dComIfGs_getArrowMax();
     }
-    // Slingshot (Pachinko)
+    // Slingshot
     else if (zItem == 0x4B || zItem == 0x76) {
         count    = dComIfGs_getPachinkoNum();
         maxCount = dComIfGs_getPachinkoMax();
     }
-    // Bombs / Bomb bags
+    // Bombs
     else if (is_bomb_item(zItem)) {
-        u8 bombType = zItem;
-        u8 bagIdx   = 0;
-        if (g_zInventorySlot >= 15 && g_zInventorySlot < 18) {
-            bagIdx = g_zInventorySlot - 15;
-        } else if (g_zMixSlot >= 15 && g_zMixSlot < 18) {
-            bagIdx = g_zMixSlot - 15;
-        } else {
-            for (u8 i = 0; i < 3; i++) {
-                u8 itemInBag = dComIfGs_getItem((u8)(i + 15), false);
-                if (itemInBag == zItem || (is_bomb_item(zItem) && itemInBag != 0x00 && itemInBag != 0xFF)) {
-                    bagIdx   = i;
-                    bombType = itemInBag;
-                    break;
-                }
-            }
-        }
-        if (bombType != 0x70 && bombType != 0x71 && bombType != 0x72) {
-            bombType = dComIfGs_getItem((u8)(bagIdx + 15), false);
-        }
-        if (bombType != 0x70 && bombType != 0x71 && bombType != 0x72) {
-            bombType = 0x70;
-        }
+        u8 bombSlot = dComIfGs_getSelectMixItemNoArrowIndex(2);
+        u8 bagIdx = (bombSlot >= 15 && bombSlot < 18) ? (bombSlot - 15) : 0;
+        u8 bombType = dComIfGs_getItem((u8)(bagIdx + 15), false);
         count    = dComIfGs_getBombNum(bagIdx);
         maxCount = dComIfGs_getBombMax(bombType);
+    }
+    // Bee larva bottle
+    else if (zItem == dItemNo_BEE_CHILD_e || zItem == dItemNo_BEE_ROD_e) {
+        u8 bottleSlot = dComIfGs_getSelectItemIndex(2);
+        u8 bottleIdx = (bottleSlot >= 11 && bottleSlot < 15) ? (bottleSlot - 11) : 0;
+        count = dComIfGs_getBottleNum(bottleIdx);
+        maxCount = 10;
     }
     // Lantern
     else if (zItem == 0x48) {
@@ -561,8 +550,12 @@ HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, void*, v
                     itemRPane->setAlpha(255);
                 }
                 if (itemRChild != nullptr) {
-                    itemRChild->show();
-                    itemRChild->setAlpha(255);
+                    if (g_zHasSecondLayer) {
+                        itemRChild->show();
+                        itemRChild->setAlpha(255);
+                    } else {
+                        itemRChild->hide();
+                    }
                 }
             }
         }

@@ -1,10 +1,19 @@
 #pragma once
 
 #include "alpha_itemwheel_zbutton.hpp"
+#include <d/d_menu_item_explain.h>
 
 DEFINE_HOOK(&dMenu_Ring_c::setActiveCursor, SetActiveCursorHook);
 DEFINE_HOOK(&dSv_player_status_a_c::setSelectItemIndex, SetSelectItemIndexHook);
 DEFINE_HOOK(&dMeter2_c::checkStatus, CheckStatusHook);
+DEFINE_HOOK(&dMenu_Ring_c::setMixItem, SetMixItemHook);
+DEFINE_HOOK(&dMenu_Ring_c::setItem, SetItemHook);
+DEFINE_HOOK(&dMenu_Ring_c::setJumpItem, SetJumpItemHook);
+DEFINE_HOOK(&dMenu_Ring_c::setSelectItemForce, SetSelectItemForceHook);
+DEFINE_HOOK(&dMenu_Ring_c::isMixItemOn, IsMixItemOnHook);
+DEFINE_HOOK(&dMenu_Ring_c::isMixItemOff, IsMixItemOffHook);
+DEFINE_HOOK(&dMenu_Ring_c::checkExplainForce, CheckExplainForceHook);
+DEFINE_HOOK(&dComIfGp_getSelectItem, GetSelectItemHook);
 
 u8 get_ring_slot_for_item(dMenu_Ring_c* ring, u8 slotOrItem) {
     if (!ring || slotOrItem == 0xFF || slotOrItem == dItemNo_NONE_e) return 0xFF;
@@ -15,7 +24,7 @@ u8 get_ring_slot_for_item(dMenu_Ring_c* ring, u8 slotOrItem) {
     u8* slots = ring->mItemSlots;
     if (!slots) return 0xFF;
     for (int i = 0; i < total; i++) {
-        if (slots[i] == targetItem) {
+        if (slots[i] == targetItem || (slots[i] < 24 && dComIfGs_getItem(slots[i], false) == targetItem)) {
             return (u8)i;
         }
     }
@@ -24,53 +33,42 @@ u8 get_ring_slot_for_item(dMenu_Ring_c* ring, u8 slotOrItem) {
 
 void trigger_ring_item_slide_z(dMenu_Ring_c* ring, u8 itemNo) {
     if (!ring) return;
+
     ring->setSelectItem(2, itemNo);
-    u8 currentSlot = ring->mCurrentSlot;
-    ring->field_0x6ac = currentSlot;
-    ring->field_0x518[2] = ring->mItemSlotPosX[currentSlot];
-    ring->field_0x528[2] = ring->mItemSlotPosY[currentSlot];
-    ring->field_0x538[2] = g_ringHIO.mSelectItemScale;
-    ring->field_0x6b4[2] = itemNo;
     ring->field_0x674[2] = 1;
+#if TARGET_PC
+    ring->mSelectItemSlideElapsed[2] = 0.0f;
+#endif
+    ring->field_0x538[0] = g_ringHIO.mUnselectItemScale;
+    ring->field_0x538[1] = g_ringHIO.mUnselectItemScale;
+    ring->field_0x538[2] = g_ringHIO.mSelectItemScale;
 }
 
 void commit_pending_z_slot(dMenu_Ring_c* ring) {
-    if (g_zPendingZSlot == 0xFF) {
-        return;
-    }
-
-    if (ring != nullptr) {
-        u8 slideTimer = (u8)ring->field_0x674[2];
-        if (slideTimer != 0) {
-            return;
+    if (g_zPendingZSlot != 0xFF) {
+        g_zInventorySlot = g_zPendingZSlot;
+        g_zPendingZSlot = 0xFF;
+        if (ring != nullptr) {
+            update_ring_z_slots(ring);
         }
     }
-
-    g_zInventorySlot = g_zPendingZSlot;
-    g_zPendingZSlot = 0xFF;
-
-    sync_z_item_state();
-    update_z_item_texture();
 }
 
 void update_ring_z_slots(dMenu_Ring_c* ring) {
     if (!ring) return;
-    u8 zSlot = g_zInventorySlot;
-    if (zSlot == 0xFF) {
-        zSlot = find_slot_for_item(dComIfGs_getSelectItemIndex(2));
-        g_zInventorySlot = zSlot;
+
+    if (ring->field_0x674[0] != 0 || ring->field_0x674[1] != 0 || ring->field_0x674[2] != 0) {
+        return;
     }
-    u8 zItemNo = (zSlot != 0xFF && zSlot < 24) ? dComIfGs_getItem(zSlot, false) : 0xFF;
-    ring->field_0x6b4[2] = zItemNo;
-    u8 ringSlot = get_ring_slot_for_item(ring, zSlot);
-    ring->field_0x6ac = ringSlot;
-    if (zItemNo != 0xFF && zItemNo != dItemNo_NONE_e) {
-        ring->setSelectItem(2, zItemNo);
-        if (ringSlot != 0xFF && ringSlot < ring->mItemsTotal) {
-            ring->field_0x518[2] = ring->mItemSlotPosX[ringSlot];
-            ring->field_0x528[2] = ring->mItemSlotPosY[ringSlot];
-            ring->field_0x538[2] = g_ringHIO.mSelectItemScale;
-        }
+
+    u8 zSlot = dComIfGs_getSelectItemIndex(2);
+    if (zSlot == 0xFF || zSlot >= 24) {
+        zSlot = g_zInventorySlot;
+    }
+    if (zSlot != 0xFF && zSlot < 24) {
+        ring->field_0x6ac = get_ring_slot_for_item(ring, zSlot);
+        ring->field_0x6b4[2] = zSlot;
+        ring->field_0x6b8[2] = dComIfGs_getMixItemIndex(2);
     }
 }
 
@@ -112,76 +110,365 @@ void on_set_active_cursor_post(ModContext*, void* args, void*, void*) {
         return;
     }
 
-    u8 hoveredItemNo = ring->mItemSlots[ring->mCurrentSlot];
-    u8 realSlot = find_slot_for_item(hoveredItemNo);
-
-    if (realSlot == 0xFF) {
+    u8 hoveredSlot = ring->mItemSlots[ring->mCurrentSlot];
+    if (hoveredSlot == 0xFF || hoveredSlot == dItemNo_NONE_e) {
         Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
         return;
     }
 
-    u8 itemNo = dComIfGs_getItem(realSlot, false);
-    if (itemNo == dItemNo_NONE_e || itemNo == 0x00 || itemNo == 0xFF) {
+    u8 hoveredItem = dComIfGs_getItem(hoveredSlot, false);
+    if (hoveredItem == dItemNo_NONE_e || hoveredItem == 0x00 || hoveredItem == 0xFF) {
         Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
         return;
     }
 
-    u8 oldZSlot = g_zInventorySlot;
-    if (oldZSlot == 0xFF) {
-        oldZSlot = find_slot_for_item(dComIfGs_getSelectItemIndex(2));
-        g_zInventorySlot = oldZSlot;
+    for (int i = 0; i < 4; i++) {
+        ring->setSelectItemForce(i);
     }
-
-    u8 oldZItemNo = (oldZSlot != 0xFF) ? dComIfGs_getItem(oldZSlot, false) : 0xFF;
-    if (realSlot == oldZSlot || (oldZItemNo != 0xFF && itemNo == oldZItemNo)) {
-        Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-        return;
+    ring->field_0x6b3 = 2;
+    if (!ring->checkCombineBomb(ring->field_0x6b3)) {
+        ring->setItem();
+        if (ring->mpItemExplain && ring->mpItemExplain->getStatus() == 0) {
+            ring->setStatus(dMenu_Ring_c::STATUS_WAIT);
+        }
     }
-
-    trigger_ring_item_slide_z(ring, itemNo);
-    ring->field_0x6b4[2] = itemNo;
-
-    u8 xVal = dComIfGs_getSelectItemIndex(0);
-    u8 yVal = dComIfGs_getSelectItemIndex(1);
-
-    u8 xItemNo = (xVal < 24) ? dComIfGs_getItem(xVal, false) : xVal;
-    u8 yItemNo = (yVal < 24) ? dComIfGs_getItem(yVal, false) : yVal;
-
-    bool xMatch = (xVal == realSlot) || (xItemNo != 0xFF && xItemNo == itemNo);
-    bool yMatch = (yVal == realSlot) || (yItemNo != 0xFF && yItemNo == itemNo);
-
-    u8 itemToMoveToXY = (oldZSlot != 0xFF) ? dComIfGs_getItem(oldZSlot, false) : 0xFF;
-
-    if (xMatch) {
-        dComIfGs_setSelectItemIndex(0, (oldZSlot != 0xFF) ? oldZSlot : 0xFF);
-        ring->mXButtonSlot = get_ring_slot_for_item(ring, oldZSlot);
-        ring->field_0x6b4[0] = itemToMoveToXY;
-    } else if (yMatch) {
-        dComIfGs_setSelectItemIndex(1, (oldZSlot != 0xFF) ? oldZSlot : 0xFF);
-        ring->mYButtonSlot = get_ring_slot_for_item(ring, oldZSlot);
-        ring->field_0x6b4[1] = itemToMoveToXY;
-    }
-
-    g_zPendingZSlot = realSlot;
-    g_zInventorySlot = realSlot;
-    sync_z_item_state();
-
-    trigger_ring_item_slide_z(ring, itemNo);
-    update_ring_z_slots(ring);
-
-    dMeter2Info_set2DVibrationM();
-    Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_X, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
 }
 
-HookAction on_set_select_item_index_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCustomZButtonEnabled || !args || g_inSetSelectItemIndex) {
+HookAction on_set_item_pre(ModContext*, void* args, void*, void*) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args) {
         return HOOK_CONTINUE;
     }
 
-    struct Guard {
-        Guard() { g_inSetSelectItemIndex = true; }
-        ~Guard() { g_inSetSelectItemIndex = false; }
-    } guard;
+    dMenu_Ring_c* ring = mods::arg<dMenu_Ring_c*>(args, 0);
+    if (!ring) return HOOK_CONTINUE;
+
+    u8 uVar1 = dComIfGs_getSelectItemIndex(0);
+    u8 uVar2 = dComIfGs_getSelectItemIndex(1);
+    u8 uVar3 = dComIfGs_getSelectItemIndex(2);
+    u8 uVar4 = dComIfGs_getSelectItemIndex(3);
+
+    u8 mixItemIndex0 = dComIfGs_getMixItemIndex(0);
+    u8 mixItemIndex1 = dComIfGs_getMixItemIndex(1);
+    u8 mixItemIndex2 = dComIfGs_getMixItemIndex(2);
+
+    for (int i = 0; i < 4; i++) {
+        ring->setSelectItemForce(i);
+    }
+
+    if (ring->field_0x6b3 == 0) {
+        if (ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(1)) {
+            u8 temp = dComIfGs_getSelectItemIndex(0);
+            uVar2 = temp;
+            mixItemIndex1 = dComIfGs_getMixItemIndex(0);
+            if (temp == dItemNo_NONE_e) {
+                ring->mYButtonSlot = dItemNo_NONE_e;
+            } else {
+                ring->mYButtonSlot = ring->mXButtonSlot;
+            }
+            ring->mXButtonSlot = ring->mCurrentSlot;
+            uVar1 = ring->mItemSlots[ring->mXButtonSlot];
+            mixItemIndex0 = dItemNo_NONE_e;
+        }
+        else if (ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(2)) {
+            u8 temp = dComIfGs_getSelectItemIndex(0);
+            uVar3 = temp;
+            mixItemIndex2 = dComIfGs_getMixItemIndex(0);
+            if (temp == dItemNo_NONE_e) {
+                ring->field_0x6ac = dItemNo_NONE_e;
+            } else {
+                ring->field_0x6ac = ring->mXButtonSlot;
+            }
+            ring->mXButtonSlot = ring->mCurrentSlot;
+            uVar1 = ring->mItemSlots[ring->mXButtonSlot];
+            mixItemIndex0 = dItemNo_NONE_e;
+        }
+        else {
+            if (dComIfGs_getMixItemIndex(1) == ring->mItemSlots[ring->mCurrentSlot]) {
+                uVar2 = dComIfGs_getSelectItemIndex(0);
+                mixItemIndex1 = dItemNo_NONE_e;
+                if (uVar2 == dItemNo_NONE_e) {
+                    ring->mYButtonSlot = dItemNo_NONE_e;
+                } else {
+                    ring->mYButtonSlot = ring->mXButtonSlot;
+                }
+                ring->mXButtonSlot = ring->mCurrentSlot;
+                uVar1 = ring->mItemSlots[ring->mXButtonSlot];
+                mixItemIndex0 = dItemNo_NONE_e;
+            }
+            else if (dComIfGs_getMixItemIndex(2) == ring->mItemSlots[ring->mCurrentSlot]) {
+                uVar3 = dComIfGs_getSelectItemIndex(0);
+                mixItemIndex2 = dItemNo_NONE_e;
+                if (uVar3 == dItemNo_NONE_e) {
+                    ring->field_0x6ac = dItemNo_NONE_e;
+                } else {
+                    ring->field_0x6ac = ring->mXButtonSlot;
+                }
+                ring->mXButtonSlot = ring->mCurrentSlot;
+                uVar1 = ring->mItemSlots[ring->mXButtonSlot];
+                mixItemIndex0 = dItemNo_NONE_e;
+            }
+            else {
+                ring->mXButtonSlot = ring->mCurrentSlot;
+                uVar1 = ring->mItemSlots[ring->mXButtonSlot];
+                mixItemIndex0 = dItemNo_NONE_e;
+            }
+        }
+    } else if (ring->field_0x6b3 == 1) {
+        if (ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(0)) {
+            u8 temp = dComIfGs_getSelectItemIndex(1);
+            uVar1 = temp;
+            mixItemIndex0 = dComIfGs_getMixItemIndex(1);
+            if (temp == dItemNo_NONE_e) {
+                ring->mXButtonSlot = dItemNo_NONE_e;
+            } else {
+                ring->mXButtonSlot = ring->mYButtonSlot;
+            }
+            ring->mYButtonSlot = ring->mCurrentSlot;
+            uVar2 = ring->mItemSlots[ring->mYButtonSlot];
+            mixItemIndex1 = dItemNo_NONE_e;
+        }
+        else if (ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(2)) {
+            u8 temp = dComIfGs_getSelectItemIndex(1);
+            uVar3 = temp;
+            mixItemIndex2 = dComIfGs_getMixItemIndex(1);
+            if (temp == dItemNo_NONE_e) {
+                ring->field_0x6ac = dItemNo_NONE_e;
+            } else {
+                ring->field_0x6ac = ring->mYButtonSlot;
+            }
+            ring->mYButtonSlot = ring->mCurrentSlot;
+            uVar2 = ring->mItemSlots[ring->mYButtonSlot];
+            mixItemIndex1 = dItemNo_NONE_e;
+        }
+        else {
+            if (dComIfGs_getMixItemIndex(0) == ring->mItemSlots[ring->mCurrentSlot]) {
+                uVar1 = dComIfGs_getSelectItemIndex(1);
+                mixItemIndex0 = dItemNo_NONE_e;
+                if (uVar1 == dItemNo_NONE_e) {
+                    ring->mXButtonSlot = dItemNo_NONE_e;
+                } else {
+                    ring->mXButtonSlot = ring->mYButtonSlot;
+                }
+                ring->mYButtonSlot = ring->mCurrentSlot;
+                uVar2 = ring->mItemSlots[ring->mYButtonSlot];
+                mixItemIndex1 = dItemNo_NONE_e;
+            }
+            else if (dComIfGs_getMixItemIndex(2) == ring->mItemSlots[ring->mCurrentSlot]) {
+                uVar3 = dComIfGs_getSelectItemIndex(1);
+                mixItemIndex2 = dItemNo_NONE_e;
+                if (uVar3 == dItemNo_NONE_e) {
+                    ring->field_0x6ac = dItemNo_NONE_e;
+                } else {
+                    ring->field_0x6ac = ring->mYButtonSlot;
+                }
+                ring->mYButtonSlot = ring->mCurrentSlot;
+                uVar2 = ring->mItemSlots[ring->mYButtonSlot];
+                mixItemIndex1 = dItemNo_NONE_e;
+            } else {
+                ring->mYButtonSlot = ring->mCurrentSlot;
+                uVar2 = ring->mItemSlots[ring->mYButtonSlot];
+                mixItemIndex1 = dItemNo_NONE_e;
+            }
+        }
+    } else if (ring->field_0x6b3 == 2) {
+        if (ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(0)) {
+            u8 temp = dComIfGs_getSelectItemIndex(2);
+            uVar1 = temp;
+            mixItemIndex0 = dComIfGs_getMixItemIndex(2);
+            if (temp == dItemNo_NONE_e) {
+                ring->mXButtonSlot = dItemNo_NONE_e;
+            } else {
+                ring->mXButtonSlot = ring->field_0x6ac;
+            }
+            ring->field_0x6ac = ring->mCurrentSlot;
+            uVar3 = ring->mItemSlots[ring->field_0x6ac];
+            mixItemIndex2 = dItemNo_NONE_e;
+        }
+        else if (ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(1)) {
+            u8 temp = dComIfGs_getSelectItemIndex(2);
+            uVar2 = temp;
+            mixItemIndex1 = dComIfGs_getMixItemIndex(2);
+            if (temp == dItemNo_NONE_e) {
+                ring->mYButtonSlot = dItemNo_NONE_e;
+            } else {
+                ring->mYButtonSlot = ring->field_0x6ac;
+            }
+            ring->field_0x6ac = ring->mCurrentSlot;
+            uVar3 = ring->mItemSlots[ring->field_0x6ac];
+            mixItemIndex2 = dItemNo_NONE_e;
+        }
+        else {
+            if (dComIfGs_getMixItemIndex(0) == ring->mItemSlots[ring->mCurrentSlot]) {
+                uVar1 = dComIfGs_getSelectItemIndex(2);
+                mixItemIndex0 = dItemNo_NONE_e;
+                if (uVar1 == dItemNo_NONE_e) {
+                    ring->mXButtonSlot = dItemNo_NONE_e;
+                } else {
+                    ring->mXButtonSlot = ring->field_0x6ac;
+                }
+                ring->field_0x6ac = ring->mCurrentSlot;
+                uVar3 = ring->mItemSlots[ring->field_0x6ac];
+                mixItemIndex2 = dItemNo_NONE_e;
+            }
+            else if (dComIfGs_getMixItemIndex(1) == ring->mItemSlots[ring->mCurrentSlot]) {
+                uVar2 = dComIfGs_getSelectItemIndex(2);
+                mixItemIndex1 = dItemNo_NONE_e;
+                if (uVar2 == dItemNo_NONE_e) {
+                    ring->mYButtonSlot = dItemNo_NONE_e;
+                } else {
+                    ring->mYButtonSlot = ring->field_0x6ac;
+                }
+                ring->field_0x6ac = ring->mCurrentSlot;
+                uVar3 = ring->mItemSlots[ring->field_0x6ac];
+                mixItemIndex2 = dItemNo_NONE_e;
+            } else {
+                ring->field_0x6ac = ring->mCurrentSlot;
+                uVar3 = ring->mItemSlots[ring->field_0x6ac];
+                mixItemIndex2 = dItemNo_NONE_e;
+            }
+        }
+    }
+
+    ring->field_0x6b4[0] = uVar1;
+    ring->field_0x6b4[1] = uVar2;
+    ring->field_0x6b4[2] = uVar3;
+    ring->field_0x6b4[3] = uVar4;
+    ring->field_0x6b8[0] = mixItemIndex0;
+    ring->field_0x6b8[1] = mixItemIndex1;
+    ring->field_0x6b8[2] = mixItemIndex2;
+    ring->field_0x6b8[3] = dItemNo_NONE_e;
+    ring->field_0x6cd = dItemNo_NONE_e;
+
+    ring->setJumpItem(true);
+
+    return HOOK_SKIP_ORIGINAL;
+}
+
+HookAction on_set_jump_item_pre(ModContext*, void* args, void*, void*) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args) {
+        return HOOK_CONTINUE;
+    }
+
+    dMenu_Ring_c* ring = mods::arg<dMenu_Ring_c*>(args, 0);
+    bool i_useVibrationM = mods::arg<bool>(args, 1);
+    if (!ring) return HOOK_CONTINUE;
+
+    for (int i = 0; i < 4; i++) {
+        if (i == 3) {
+            ring->setSelectItem(i, ring->field_0x6b4[i]);
+        } else if (i == ring->field_0x6cd) {
+            ring->setSelectItem(i, ring->getItem(ring->field_0x6cb, 0));
+        } else {
+            ring->setSelectItem(i, ring->getItem(ring->field_0x6b4[i], ring->field_0x6b8[i]));
+        }
+    }
+
+    if (ring->mXButtonSlot != dItemNo_NONE_e) {
+        ring->field_0x518[0] = ring->mItemSlotPosX[ring->mXButtonSlot];
+        ring->field_0x528[0] = ring->mItemSlotPosY[ring->mXButtonSlot];
+    }
+    if (ring->mYButtonSlot != dItemNo_NONE_e) {
+        ring->field_0x518[1] = ring->mItemSlotPosX[ring->mYButtonSlot];
+        ring->field_0x528[1] = ring->mItemSlotPosY[ring->mYButtonSlot];
+    }
+    if (ring->field_0x6ac != dItemNo_NONE_e) {
+        ring->field_0x518[2] = ring->mItemSlotPosX[ring->field_0x6ac];
+        ring->field_0x528[2] = ring->mItemSlotPosY[ring->field_0x6ac];
+    }
+    if (ring->field_0x6ad != dItemNo_NONE_e) {
+        ring->field_0x518[3] = ring->mItemSlotPosX[ring->field_0x6ad];
+        ring->field_0x528[3] = ring->mItemSlotPosY[ring->field_0x6ad];
+    }
+
+    if (ring->field_0x6b3 == 0) {
+        ring->field_0x538[0] = g_ringHIO.mSelectItemScale;
+        ring->field_0x538[1] = g_ringHIO.mUnselectItemScale;
+        ring->field_0x538[2] = g_ringHIO.mUnselectItemScale;
+        if (ring->field_0x6b4[0] != dComIfGs_getSelectItemIndex(0) ||
+            ring->field_0x6b8[0] != dComIfGs_getMixItemIndex(0))
+        {
+            ring->field_0x674[0] = 1;
+#if TARGET_PC
+            ring->mSelectItemSlideElapsed[0] = 0.0f;
+#endif
+        }
+    } else if (ring->field_0x6b3 == 1) {
+        ring->field_0x538[0] = g_ringHIO.mUnselectItemScale;
+        ring->field_0x538[1] = g_ringHIO.mSelectItemScale;
+        ring->field_0x538[2] = g_ringHIO.mUnselectItemScale;
+        if (ring->field_0x6b4[1] != dComIfGs_getSelectItemIndex(1) ||
+            ring->field_0x6b8[1] != dComIfGs_getMixItemIndex(1))
+        {
+            ring->field_0x674[1] = 1;
+#if TARGET_PC
+            ring->mSelectItemSlideElapsed[1] = 0.0f;
+#endif
+        }
+    } else if (ring->field_0x6b3 == 2) {
+        ring->field_0x538[0] = g_ringHIO.mUnselectItemScale;
+        ring->field_0x538[1] = g_ringHIO.mUnselectItemScale;
+        ring->field_0x538[2] = g_ringHIO.mSelectItemScale;
+        if (ring->field_0x6b4[2] != dComIfGs_getSelectItemIndex(2) ||
+            ring->field_0x6b8[2] != dComIfGs_getMixItemIndex(2))
+        {
+            ring->field_0x674[2] = 1;
+#if TARGET_PC
+            ring->mSelectItemSlideElapsed[2] = 0.0f;
+#endif
+        }
+    }
+
+    if (ring->field_0x674[0] == 1 || ring->field_0x674[1] == 1 || ring->field_0x674[2] == 1) {
+        if (i_useVibrationM) {
+            dMeter2Info_set2DVibrationM();
+        }
+        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_X, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+    } else if (ring->field_0x674[3] == 1) {
+        if (i_useVibrationM) {
+            dMeter2Info_set2DVibrationM();
+        }
+        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_B, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+    } else {
+        Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+    }
+
+    return HOOK_SKIP_ORIGINAL;
+}
+
+HookAction on_set_select_item_force_pre(ModContext*, void* args, void*, void*) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args) {
+        return HOOK_CONTINUE;
+    }
+
+    dMenu_Ring_c* ring = mods::arg<dMenu_Ring_c*>(args, 0);
+    int i_idx = mods::arg<int>(args, 1);
+    if (!ring || i_idx < 0 || i_idx >= 4) return HOOK_CONTINUE;
+
+    if (ring->field_0x674[i_idx] != 0) {
+        if (i_idx == 3) {
+            dComIfGs_setSelectItemIndex(i_idx, ring->field_0x6b4[i_idx]);
+        } else {
+            for (int i = 0; i < 3; i++) {
+                dComIfGs_setMixItemIndex(i, ring->field_0x6b8[i]);
+                dComIfGs_setSelectItemIndex(i, ring->field_0x6b4[i]);
+            }
+        }
+        ring->field_0x674[i_idx] = 0;
+#if TARGET_PC
+        ring->mSelectItemSlideElapsed[i_idx] = 0.0f;
+#endif
+        g_zInventorySlot = ring->field_0x6b4[2];
+        g_zMixSlot = ring->field_0x6b8[2];
+        sync_z_item_state();
+        update_z_item_texture();
+    }
+    return HOOK_SKIP_ORIGINAL;
+}
+
+HookAction on_set_select_item_index_pre(ModContext*, void* args, void*, void*) {
+    if (!g_configCustomZButtonEnabled || !args) {
+        return HOOK_CONTINUE;
+    }
 
     dSv_player_status_a_c* status = mods::arg<dSv_player_status_a_c*>(args, 0);
     int i_no = mods::arg<int>(args, 1);
@@ -191,89 +478,330 @@ HookAction on_set_select_item_index_pre(ModContext*, void* args, void*, void*) {
         return HOOK_CONTINUE;
     }
 
-    u8 targetSlot = find_slot_for_item(i_slotNo);
-
     if (i_no == 2) {
-        if (g_zPendingZSlot != 0xFF && g_zInventorySlot != 0xFF) {
-            status->mSelectItem[2] = g_zInventorySlot;
-        } else if (g_zInventorySlot != 0xFF) {
-            status->mSelectItem[2] = g_zInventorySlot;
-        } else if (targetSlot != 0xFF) {
-            g_zInventorySlot = targetSlot;
-            status->mSelectItem[2] = targetSlot;
-        }
+        status->mSelectItem[2] = i_slotNo;
+        g_zInventorySlot = i_slotNo;
         sync_z_item_state();
         return HOOK_SKIP_ORIGINAL;
     }
 
-    if (i_no == 0 || i_no == 1) {
-        if (targetSlot == 0xFF) {
-            status->mSelectItem[i_no] = 0xFF;
-            return HOOK_SKIP_ORIGINAL;
-        }
+    return HOOK_CONTINUE;
+}
 
-        u8 currentSlot = status->mSelectItem[i_no];
+HookAction on_set_mix_item_pre(ModContext*, void* args, void*, void*) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args) {
+        return HOOK_CONTINUE;
+    }
 
-        if (targetSlot == currentSlot) {
-            status->mSelectItem[i_no] = targetSlot;
-            return HOOK_SKIP_ORIGINAL;
-        }
+    dMenu_Ring_c* ring = mods::arg<dMenu_Ring_c*>(args, 0);
+    if (!ring) return HOOK_CONTINUE;
 
-        u8 currentZSlot = g_zInventorySlot;
-        if (currentZSlot == 0xFF) {
-            currentZSlot = find_slot_for_item(status->mSelectItem[2]);
-            g_zInventorySlot = currentZSlot;
-        }
+    bool bVar1 = false;
+    u8 selectItemIndex0 = dComIfGs_getSelectItemIndex(0);
+    u8 selectItemIndex1 = dComIfGs_getSelectItemIndex(1);
+    u8 selectItemIndex2 = dComIfGs_getSelectItemIndex(2);
+    u8 local_28[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
 
-        int otherButtonIdx = 1 - i_no;
-        u8 otherSlot = status->mSelectItem[otherButtonIdx];
+    u8 item = dComIfGs_getItem(ring->mItemSlots[ring->mCurrentSlot], false);
 
-        if (currentZSlot != 0xFF && targetSlot == currentZSlot) {
-            u8 oldXYSlot = currentSlot;
-            u8 newZSlot = (oldXYSlot < 24) ? oldXYSlot : find_slot_for_item(oldXYSlot);
-
-            g_zInventorySlot = newZSlot;
-            status->mSelectItem[2] = (newZSlot != 0xFF) ? newZSlot : 0xFF;
-            dComIfGs_setSelectItemIndex(2, (newZSlot != 0xFF) ? newZSlot : 0xFF);
-
-            if (g_activeRing) {
-                update_ring_z_slots(g_activeRing);
-            }
-        }
-        else if (otherSlot != 0xFF && targetSlot == otherSlot) {
-            u8 oldSlot = currentSlot;
-            status->mSelectItem[otherButtonIdx] = oldSlot;
-            dComIfGs_setSelectItemIndex(otherButtonIdx, oldSlot);
-
-            if (g_activeRing) {
-                if (otherButtonIdx == 0) {
-                    g_activeRing->mXButtonSlot = get_ring_slot_for_item(g_activeRing, oldSlot);
-                    g_activeRing->field_0x6b4[0] = (oldSlot < 24) ? dComIfGs_getItem(oldSlot, false) : 0xFF;
-                } else {
-                    g_activeRing->mYButtonSlot = get_ring_slot_for_item(g_activeRing, oldSlot);
-                    g_activeRing->field_0x6b4[1] = (oldSlot < 24) ? dComIfGs_getItem(oldSlot, false) : 0xFF;
+    if (dComIfGs_getMixItemIndex(0) == 4 && ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(0)) {
+        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_OFF, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+        ring->field_0x6cb = selectItemIndex0;
+        selectItemIndex0 = 4;
+        local_28[0] = get_ring_slot_for_item(ring, 4);
+        ring->field_0x6b8[0] = 0xFF;
+        ring->field_0x6b3 = 0;
+        ring->field_0x6cd = 0;
+        bVar1 = true;
+    } else if (dComIfGs_getMixItemIndex(1) == 4 && ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(1)) {
+        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_OFF, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+        ring->field_0x6cb = selectItemIndex1;
+        selectItemIndex1 = 4;
+        local_28[1] = get_ring_slot_for_item(ring, 4);
+        ring->field_0x6b8[1] = 0xFF;
+        ring->field_0x6b3 = 1;
+        ring->field_0x6cd = 1;
+        bVar1 = true;
+    } else if (dComIfGs_getMixItemIndex(2) == 4 && ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(2)) {
+        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_OFF, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+        ring->field_0x6cb = selectItemIndex2;
+        selectItemIndex2 = 4;
+        local_28[2] = get_ring_slot_for_item(ring, 4);
+        ring->field_0x6b8[2] = 0xFF;
+        ring->field_0x6b3 = 2;
+        ring->field_0x6cd = 2;
+        bVar1 = true;
+    } else {
+        switch (item) {
+        case dItemNo_NORMAL_BOMB_e:
+        case dItemNo_WATER_BOMB_e:
+        case dItemNo_POKE_BOMB_e:
+        case dItemNo_HAWK_EYE_e:
+            if ((dComIfGs_getSelectItemIndex(0) == 4 && dComIfGs_getMixItemIndex(0) == 0xFF) ||
+                dComIfGs_getMixItemIndex(0) == 4)
+            {
+                Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_ON, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+                selectItemIndex0 = ring->mItemSlots[ring->mCurrentSlot];
+                ring->field_0x6b8[0] = 4;
+                ring->field_0x6b3 = 0;
+                ring->mXButtonSlot = ring->mCurrentSlot;
+                ring->field_0x6cd = 0xFF;
+                bVar1 = true;
+                if (selectItemIndex1 == ring->mItemSlots[ring->mCurrentSlot]) {
+                    selectItemIndex1 = 0xFF;
+                    ring->mYButtonSlot = 0xFF;
+                } else if (selectItemIndex2 == ring->mItemSlots[ring->mCurrentSlot]) {
+                    selectItemIndex2 = 0xFF;
+                    ring->field_0x6ac = 0xFF;
+                }
+            } else if ((dComIfGs_getSelectItemIndex(1) == 4 && dComIfGs_getMixItemIndex(1) == 0xFF) ||
+                       dComIfGs_getMixItemIndex(1) == 4)
+            {
+                Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_ON, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+                selectItemIndex1 = ring->mItemSlots[ring->mCurrentSlot];
+                ring->field_0x6b8[1] = 4;
+                ring->field_0x6b3 = 1;
+                ring->mYButtonSlot = ring->mCurrentSlot;
+                ring->field_0x6cd = 0xFF;
+                bVar1 = true;
+                if (selectItemIndex0 == ring->mItemSlots[ring->mCurrentSlot]) {
+                    selectItemIndex0 = 0xFF;
+                    ring->mXButtonSlot = 0xFF;
+                } else if (selectItemIndex2 == ring->mItemSlots[ring->mCurrentSlot]) {
+                    selectItemIndex2 = 0xFF;
+                    ring->field_0x6ac = 0xFF;
+                }
+            } else if ((dComIfGs_getSelectItemIndex(2) == 4 && dComIfGs_getMixItemIndex(2) == 0xFF) ||
+                       dComIfGs_getMixItemIndex(2) == 4)
+            {
+                Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_ON, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+                selectItemIndex2 = ring->mItemSlots[ring->mCurrentSlot];
+                ring->field_0x6b8[2] = 4;
+                ring->field_0x6b3 = 2;
+                ring->field_0x6ac = ring->mCurrentSlot;
+                ring->field_0x6cd = 0xFF;
+                bVar1 = true;
+                if (selectItemIndex0 == ring->mItemSlots[ring->mCurrentSlot]) {
+                    selectItemIndex0 = 0xFF;
+                    ring->mXButtonSlot = 0xFF;
+                } else if (selectItemIndex1 == ring->mItemSlots[ring->mCurrentSlot]) {
+                    selectItemIndex1 = 0xFF;
+                    ring->mYButtonSlot = 0xFF;
                 }
             }
+            break;
         }
-
-        status->mSelectItem[i_no] = targetSlot;
-        dComIfGs_setSelectItemIndex(i_no, targetSlot);
-        sync_z_item_state();
-
-        if (g_activeRing) {
-            update_ring_z_slots(g_activeRing);
-            if (i_no == 0) {
-                g_activeRing->mXButtonSlot = get_ring_slot_for_item(g_activeRing, targetSlot);
-                g_activeRing->field_0x6b4[0] = (targetSlot < 24) ? dComIfGs_getItem(targetSlot, false) : 0xFF;
-            } else {
-                g_activeRing->mYButtonSlot = get_ring_slot_for_item(g_activeRing, targetSlot);
-                g_activeRing->field_0x6b4[1] = (targetSlot < 24) ? dComIfGs_getItem(targetSlot, false) : 0xFF;
-            }
-        }
-
-        return HOOK_SKIP_ORIGINAL;
     }
 
+    if (bVar1) {
+        ring->field_0x6b4[0] = selectItemIndex0;
+        ring->field_0x6b4[1] = selectItemIndex1;
+        ring->field_0x6b4[2] = selectItemIndex2;
+        ring->setJumpItem(false);
+        if (local_28[0] != 0xFF) ring->mXButtonSlot = local_28[0];
+        if (local_28[1] != 0xFF) ring->mYButtonSlot = local_28[1];
+        if (local_28[2] != 0xFF) ring->field_0x6ac = local_28[2];
+
+        dComIfGs_setSelectItemIndex(0, selectItemIndex0);
+        dComIfGs_setSelectItemIndex(1, selectItemIndex1);
+        dComIfGs_setSelectItemIndex(2, selectItemIndex2);
+        dComIfGs_setMixItemIndex(0, ring->field_0x6b8[0]);
+        dComIfGs_setMixItemIndex(1, ring->field_0x6b8[1]);
+        dComIfGs_setMixItemIndex(2, ring->field_0x6b8[2]);
+
+        g_zInventorySlot = selectItemIndex2;
+        g_zMixSlot = ring->field_0x6b8[2];
+        sync_z_item_state();
+    }
+
+    return HOOK_SKIP_ORIGINAL;
+}
+
+HookAction on_is_mix_item_on_pre(ModContext*, void* args, void* retval, void*) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args) {
+        return HOOK_CONTINUE;
+    }
+
+    dMenu_Ring_c* ring = mods::arg<dMenu_Ring_c*>(args, 0);
+    if (!ring || ring->mPlayerIsWolf) return HOOK_CONTINUE;
+
+    u8 item = dComIfGs_getItem(ring->mItemSlots[ring->mCurrentSlot], false);
+    switch (item) {
+    case dItemNo_NORMAL_BOMB_e:
+    case dItemNo_WATER_BOMB_e:
+    case dItemNo_POKE_BOMB_e:
+    case dItemNo_HAWK_EYE_e:
+        for (int i = 0; i < 3; i++) {
+            if ((dComIfGs_getSelectItemIndex(i) == 4 && dComIfGs_getMixItemIndex(i) == 0xFF) ||
+                (dComIfGs_getMixItemIndex(i) == 4))
+            {
+                *reinterpret_cast<bool*>(retval) = true;
+                return HOOK_SKIP_ORIGINAL;
+            }
+        }
+        break;
+    }
+    *reinterpret_cast<bool*>(retval) = false;
+    return HOOK_SKIP_ORIGINAL;
+}
+
+HookAction on_is_mix_item_off_pre(ModContext*, void* args, void* retval, void*) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args) {
+        return HOOK_CONTINUE;
+    }
+
+    dMenu_Ring_c* ring = mods::arg<dMenu_Ring_c*>(args, 0);
+    if (!ring || ring->mPlayerIsWolf) return HOOK_CONTINUE;
+
+    for (int i = 0; i < 3; i++) {
+        if (dComIfGs_getMixItemIndex(i) == 4 &&
+            ring->mItemSlots[ring->mCurrentSlot] == dComIfGs_getSelectItemIndex(i))
+        {
+            *reinterpret_cast<bool*>(retval) = true;
+            return HOOK_SKIP_ORIGINAL;
+        }
+    }
+    *reinterpret_cast<bool*>(retval) = false;
+    return HOOK_SKIP_ORIGINAL;
+}
+
+HookAction on_check_explain_force_pre(ModContext*, void* args, void* retval, void*) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args) {
+        return HOOK_CONTINUE;
+    }
+
+    dMenu_Ring_c* ring = mods::arg<dMenu_Ring_c*>(args, 0);
+    if (!ring || ring->mPlayerIsWolf) return HOOK_CONTINUE;
+
+    u8 item = dComIfGs_getItem(ring->mItemSlots[ring->mCurrentSlot], false);
+    u8 item0 = (dComIfGs_getSelectItemIndex(0) != 0xFF) ? dComIfGs_getItem(dComIfGs_getSelectItemIndex(0), false) : 0xFF;
+    u8 item1 = (dComIfGs_getSelectItemIndex(1) != 0xFF) ? dComIfGs_getItem(dComIfGs_getSelectItemIndex(1), false) : 0xFF;
+    u8 item2 = (dComIfGs_getSelectItemIndex(2) != 0xFF) ? dComIfGs_getItem(dComIfGs_getSelectItemIndex(2), false) : 0xFF;
+
+    u8 local_18[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+
+    switch (item) {
+    case dItemNo_BOW_e:
+        switch (item0) {
+        case dItemNo_NORMAL_BOMB_e:
+        case dItemNo_WATER_BOMB_e:
+        case dItemNo_POKE_BOMB_e:
+            local_18[0] = dItemNo_BOMB_ARROW_e;
+            break;
+        case dItemNo_HAWK_EYE_e:
+            local_18[0] = dItemNo_HAWK_ARROW_e;
+            break;
+        }
+        switch (item1) {
+        case dItemNo_NORMAL_BOMB_e:
+        case dItemNo_WATER_BOMB_e:
+        case dItemNo_POKE_BOMB_e:
+            local_18[1] = dItemNo_BOMB_ARROW_e;
+            break;
+        case dItemNo_HAWK_EYE_e:
+            local_18[1] = dItemNo_HAWK_ARROW_e;
+            break;
+        }
+        switch (item2) {
+        case dItemNo_NORMAL_BOMB_e:
+        case dItemNo_WATER_BOMB_e:
+        case dItemNo_POKE_BOMB_e:
+            local_18[2] = dItemNo_BOMB_ARROW_e;
+            break;
+        case dItemNo_HAWK_EYE_e:
+            local_18[2] = dItemNo_HAWK_ARROW_e;
+            break;
+        }
+        break;
+    case dItemNo_NORMAL_BOMB_e:
+    case dItemNo_WATER_BOMB_e:
+    case dItemNo_POKE_BOMB_e:
+        if (item0 == dItemNo_BOW_e) local_18[0] = dItemNo_BOMB_ARROW_e;
+        if (item1 == dItemNo_BOW_e) local_18[1] = dItemNo_BOMB_ARROW_e;
+        if (item2 == dItemNo_BOW_e) local_18[2] = dItemNo_BOMB_ARROW_e;
+        break;
+    case dItemNo_HAWK_EYE_e:
+        if (item0 == dItemNo_BOW_e) local_18[0] = dItemNo_HAWK_ARROW_e;
+        if (item1 == dItemNo_BOW_e) local_18[1] = dItemNo_HAWK_ARROW_e;
+        if (item2 == dItemNo_BOW_e) local_18[2] = dItemNo_HAWK_ARROW_e;
+        break;
+    case dItemNo_BEE_CHILD_e:
+        if (item0 == dItemNo_FISHING_ROD_1_e) local_18[0] = dItemNo_BEE_ROD_e;
+        if (item1 == dItemNo_FISHING_ROD_1_e) local_18[1] = dItemNo_BEE_ROD_e;
+        if (item2 == dItemNo_FISHING_ROD_1_e) local_18[2] = dItemNo_BEE_ROD_e;
+        break;
+    case dItemNo_WORM_e:
+        if (item0 == dItemNo_FISHING_ROD_1_e) local_18[0] = dItemNo_WORM_ROD_e;
+        if (item1 == dItemNo_FISHING_ROD_1_e) local_18[1] = dItemNo_WORM_ROD_e;
+        if (item2 == dItemNo_FISHING_ROD_1_e) local_18[2] = dItemNo_WORM_ROD_e;
+        break;
+    case dItemNo_ZORAS_JEWEL_e:
+        if (item0 == dItemNo_FISHING_ROD_1_e) local_18[0] = dItemNo_JEWEL_ROD_e;
+        if (item1 == dItemNo_FISHING_ROD_1_e) local_18[1] = dItemNo_JEWEL_ROD_e;
+        if (item2 == dItemNo_FISHING_ROD_1_e) local_18[2] = dItemNo_JEWEL_ROD_e;
+        break;
+    case dItemNo_FISHING_ROD_1_e:
+        if (item0 == dItemNo_BEE_CHILD_e) local_18[0] = dItemNo_BEE_ROD_e;
+        else if (item0 == dItemNo_ZORAS_JEWEL_e) local_18[0] = dItemNo_JEWEL_ROD_e;
+        else if (item0 == dItemNo_WORM_e) local_18[0] = dItemNo_WORM_ROD_e;
+
+        if (item1 == dItemNo_BEE_CHILD_e) local_18[1] = dItemNo_BEE_ROD_e;
+        else if (item1 == dItemNo_ZORAS_JEWEL_e) local_18[1] = dItemNo_JEWEL_ROD_e;
+        else if (item1 == dItemNo_WORM_e) local_18[1] = dItemNo_WORM_ROD_e;
+
+        if (item2 == dItemNo_BEE_CHILD_e) local_18[2] = dItemNo_BEE_ROD_e;
+        else if (item2 == dItemNo_ZORAS_JEWEL_e) local_18[2] = dItemNo_JEWEL_ROD_e;
+        else if (item2 == dItemNo_WORM_e) local_18[2] = dItemNo_WORM_ROD_e;
+        break;
+    }
+
+    if (local_18[0] != 0xFF && local_18[1] == 0xFF && local_18[2] == 0xFF && local_18[3] == 0xFF && dComIfGs_getMixItemIndex(0) == 0xFF) {
+        ring->field_0x6c7[0] = local_18[0];
+        ring->field_0x6c7[1] = 0xFF;
+        ring->field_0x6c7[2] = 0xFF;
+        ring->field_0x6c7[3] = 0xFF;
+    } else if (local_18[0] == 0xFF && local_18[1] != 0xFF && local_18[2] == 0xFF && local_18[3] == 0xFF && dComIfGs_getMixItemIndex(1) == 0xFF) {
+        ring->field_0x6c7[0] = 0xFF;
+        ring->field_0x6c7[1] = local_18[1];
+        ring->field_0x6c7[2] = 0xFF;
+        ring->field_0x6c7[3] = 0xFF;
+    } else if (local_18[0] == 0xFF && local_18[1] == 0xFF && local_18[2] != 0xFF && local_18[3] == 0xFF && dComIfGs_getMixItemIndex(2) == 0xFF) {
+        ring->field_0x6c7[0] = 0xFF;
+        ring->field_0x6c7[1] = 0xFF;
+        ring->field_0x6c7[2] = local_18[2];
+        ring->field_0x6c7[3] = 0xFF;
+    } else {
+        ring->field_0x6c7[0] = 0xFF;
+        ring->field_0x6c7[1] = 0xFF;
+        ring->field_0x6c7[2] = 0xFF;
+        ring->field_0x6c7[3] = 0xFF;
+    }
+
+    *reinterpret_cast<bool*>(retval) = (ring->field_0x6c7[0] != 0xFF || ring->field_0x6c7[1] != 0xFF || ring->field_0x6c7[2] != 0xFF);
+    return HOOK_SKIP_ORIGINAL;
+}
+
+HookAction on_get_select_item_pre(ModContext*, void* args, void* retval, void*) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args || !retval) {
+        return HOOK_CONTINUE;
+    }
+
+    int idx = mods::arg<int>(args, 0);
+    if (idx >= 0 && idx < 3) {
+        u8 slot = dComIfGs_getSelectItemIndex(idx);
+        if (slot != 0xFF && slot < 24) {
+            u8 rawItem = dComIfGs_getItem(slot, false);
+            u8 mix = dComIfGs_getMixItemIndex(idx);
+            if (mix != 0xFF && mix < 24) {
+                *reinterpret_cast<u8*>(retval) = combine_select_item(rawItem, mix);
+                return HOOK_SKIP_ORIGINAL;
+            }
+            if (idx == 2) {
+                *reinterpret_cast<u8*>(retval) = rawItem;
+                return HOOK_SKIP_ORIGINAL;
+            }
+        }
+    }
     return HOOK_CONTINUE;
 }
 

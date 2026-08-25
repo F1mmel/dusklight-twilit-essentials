@@ -160,16 +160,19 @@ HookAction on_check_item_button_change_pre(ModContext*, void* args, void*, void*
 HookAction on_check_item_set_button_pre(ModContext*, void* args, void* retval, void*) {
     auto* link = mods::arg<daAlink_c*>(args, 0);
     const int itemNo = mods::arg<int>(args, 1);
-    if (!g_configCustomZButtonEnabled || link == nullptr || !item_needs_z_valid_button(itemNo)) {
+    if (!g_configCustomZButtonEnabled || link == nullptr) {
         return HOOK_CONTINUE;
     }
 
-    if (link->checkGroupItem(itemNo, resolved_select_item(2))) {
-        *static_cast<int*>(retval) = SELECT_ITEM_X;
-        return HOOK_SKIP_ORIGINAL;
+    for (u8 i = 0; i < 3; ++i) {
+        if (link->checkGroupItem(itemNo, resolved_select_item(i))) {
+            *static_cast<int*>(retval) = i;
+            return HOOK_SKIP_ORIGINAL;
+        }
     }
 
-    return HOOK_CONTINUE;
+    *static_cast<int*>(retval) = 3;
+    return HOOK_SKIP_ORIGINAL;
 }
 
 HookAction on_check_set_item_trigger_pre(ModContext*, void* args, void* retval, void*) {

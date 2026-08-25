@@ -31,6 +31,7 @@ J2DPicture* g_cachedZMainPic = nullptr;
 f32 g_cachedZW = 32.0f;
 f32 g_cachedZH = 32.0f;
 u8 g_lastLoadedZItem = 0xFF;
+bool g_zHasSecondLayer = false;
 
 J2DPicture* g_drawDigitPic[3] = { nullptr, nullptr, nullptr };
 dKantera_icon_c* g_zKanteraIcon = nullptr;
@@ -57,36 +58,22 @@ void ensure_z_buffers() {
 }
 
 void sync_z_item_state() {
-    u8 zItem = (g_zInventorySlot != 0xFF) ? dComIfGs_getItem(g_zInventorySlot, true) : 0xFF;
-    if (zItem == 0xFF || zItem == 0x00 || zItem == dItemNo_NONE_e) {
-        for (u8 i = 0; i < 24; i++) {
-            u8 itm = dComIfGs_getItem(i, true);
-            if (itm != 0xFF && itm != 0x00 && itm != dItemNo_NONE_e) {
-                g_zInventorySlot = i;
-                zItem = itm;
-                break;
-            }
-        }
+    u8 zSlot = dComIfGs_getSelectItemIndex(2);
+    if (zSlot == 0xFF || zSlot >= 24) {
+        zSlot = g_zInventorySlot;
     }
-    if (zItem == 0xFF || zItem == 0x00 || zItem == dItemNo_NONE_e) return;
+    if (zSlot == 0xFF || zSlot >= 24) return;
 
-    dComIfGs_setSelectItemIndex(2, g_zInventorySlot);
-    g_dComIfG_gameInfo.play.setSelectItem(2, zItem);
+    g_zInventorySlot = zSlot;
+    u8 zMix = dComIfGs_getMixItemIndex(2);
+    g_zMixSlot = zMix;
 
-    s16 count = 99;
-    if (is_bomb_item(zItem)) {
-        u8 bagIdx = 0;
-        if (g_zInventorySlot == 15) bagIdx = 0;
-        else if (g_zInventorySlot == 16) bagIdx = 1;
-        else if (g_zInventorySlot == 17) bagIdx = 2;
-        count = dComIfGs_getBombNum(bagIdx);
-    } else if (zItem == 0x43 || zItem == 0x53 || zItem == 0x54 || zItem == 0x55 || zItem == 0x56 || zItem == 0x59 || zItem == 0x5A) {
-        count = dComIfGs_getArrowNum();
-    } else if (zItem == 0x4B) {
-        count = dComIfGs_getPachinkoNum();
-    }
+    u8 rawItem = dComIfGs_getItem(zSlot, false);
+    u8 combinedItem = combine_select_item(rawItem, zMix);
 
-    dComIfGp_setSelectItemNum(2, count);
+    dComIfGs_setSelectItemIndex(2, zSlot);
+    dComIfGs_setMixItemIndex(2, zMix);
+    g_dComIfG_gameInfo.play.setSelectItem(2, combinedItem);
 }
 
 void ensure_z_slot_initialized() {
