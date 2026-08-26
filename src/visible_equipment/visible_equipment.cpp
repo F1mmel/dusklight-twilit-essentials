@@ -439,7 +439,7 @@ static void renderBow(daAlink_c *alink, bool shouldShowEquipment,
   }
 }
 
-static void renderQuiver(daAlink_c *alink, bool shouldShowEquipment) {
+static void renderQuiver(daAlink_c* alink, bool shouldShowEquipment) {
   if (!shouldShowEquipment || s_customQuiverModel == nullptr) {
     return;
   }
@@ -452,6 +452,43 @@ static void renderQuiver(daAlink_c *alink, bool shouldShowEquipment) {
     if (modelData != nullptr) {
       s_loggedLinkJointsOnce = true;
     }
+      }
+
+  MtxP quiverMtx = getBoneMtx(alink, "waist");
+
+  if (quiverMtx != nullptr) {
+    mDoMtx_stack_c::copy(quiverMtx);
+
+    if (s_loadedQuiverType == 3) {
+      // Level 3 Giant Quiver (100 Arrows)
+      mDoMtx_stack_c::transM(25.0f, 15.0f, 5.0f);
+      mDoMtx_stack_c::XYZrotM(degToS16(-70.0f), degToS16(0.0f), degToS16(90.0f));
+
+      cXyz scale(1.1f, 1.1f, 1.1f);
+      s_customQuiverModel->setBaseScale(scale);
+    } else if (s_loadedQuiverType == 2) {
+      // Level 2 Big Quiver (60 Arrows)
+      mDoMtx_stack_c::transM(25.0f, 15.0f, 5.0f);
+      mDoMtx_stack_c::XYZrotM(degToS16(-90.0f), degToS16(30.0f), degToS16(0.0f));
+
+      cXyz scale(1.1f, 1.1f, 1.1f);
+      s_customQuiverModel->setBaseScale(scale);
+    } else {
+      // Level 1 Standard Quiver (30 Arrows)
+      mDoMtx_stack_c::transM(25.0f, 15.0f, 5.0f);
+      mDoMtx_stack_c::XYZrotM(degToS16(-90.0f), degToS16(30.0f), degToS16(0.0f));
+
+      cXyz scale(1.0f, 1.0f, 1.0f);
+      s_customQuiverModel->setBaseScale(scale);
+    }
+
+    s_customQuiverModel->setBaseTRMtx(mDoMtx_stack_c::get());
+    s_customQuiverModel->calc();
+
+    g_env_light.settingTevStruct_colget_player(&alink->tevStr);
+    g_env_light.setLightTevColorType_MAJI(s_customQuiverModel, &alink->tevStr);
+    mDoExt_modelUpdateDL(s_customQuiverModel);
+    addModelShadow(alink, s_customQuiverModel);
   }
 }
 
