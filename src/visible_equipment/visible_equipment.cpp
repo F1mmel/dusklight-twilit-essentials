@@ -86,7 +86,8 @@ static bool isWolfOrTransforming(daAlink_c *alink) {
 
 static MtxP getBoneMtx(daAlink_c *alink, const char *boneName) {
   if (alink == nullptr || alink->mpLinkModel == nullptr ||
-      boneName == nullptr || isWolfOrTransforming(alink)) {
+      boneName == nullptr || isWolfOrTransforming(alink) ||
+      alink->getClothesChangeWaitTimer() != 0) {
     return nullptr;
   }
 
@@ -215,18 +216,25 @@ static J3DModel *loadBmdModel(J3DModel *&modelPtr, const char *arcName,
     return nullptr;
   }
 
-  dComIfG_setObjectRes(arcName, 0, nullptr);
+  daAlink_c *alink = static_cast<daAlink_c *>(dComIfGp_getPlayer(0));
+  bool isLinkArc = (alink != nullptr && alink->mArcName != nullptr && std::strcmp(arcName, alink->mArcName) == 0);
 
-  if (dComIfG_syncObjectRes(arcName) == 0) {
-    void *resPtr = isObjectID ? dComIfG_getObjectIDRes(arcName, bmdIndex)
-                              : dComIfG_getObjectRes(arcName, bmdIndex);
-    if (resPtr != nullptr) {
-      J3DModelData *modelData = static_cast<J3DModelData *>(resPtr);
-      if (modelData != nullptr && modelData->getShapeTable() != nullptr) {
-        modelPtr = mDoExt_J3DModel__create(modelData, 0x80000, 0x11000084);
-        if (modelPtr != nullptr) {
-          modelPtr->setBaseScale(scale);
-        }
+  if (!isLinkArc) {
+    dComIfG_setObjectRes(arcName, 0, nullptr);
+    if (dComIfG_syncObjectRes(arcName) != 0) {
+      return nullptr;
+    }
+  }
+
+  void *resPtr = isObjectID ? dComIfG_getObjectIDRes(arcName, bmdIndex)
+                            : dComIfG_getObjectRes(arcName, bmdIndex);
+  if (resPtr != nullptr) {
+    J3DModelData *modelData = static_cast<J3DModelData *>(resPtr);
+    if (modelData != nullptr && modelData->getShapeTable() != nullptr &&
+        modelData->getMaterialNum() > 0 && modelData->getMaterialNodePointer(0) != nullptr) {
+      modelPtr = mDoExt_J3DModel__create(modelData, 0x80000, 0x11000084);
+      if (modelPtr != nullptr) {
+        modelPtr->setBaseScale(scale);
       }
     }
   }
@@ -277,7 +285,11 @@ static void loadHorseCallModel(const LogService *, ModContext *) {
 }
 
 static void loadLanternModel(const LogService *, ModContext *) {
-  loadBmdModel(s_customLanternModel, "Bmdl", 0x0006, cXyz(1.0f, 1.0f, 1.0f));
+  daAlink_c *alink = static_cast<daAlink_c *>(dComIfGp_getPlayer(0));
+  if (alink == nullptr || alink->mArcName == nullptr || alink->getClothesChangeWaitTimer() != 0) {
+    return;
+  }
+  loadBmdModel(s_customLanternModel, alink->mArcName, 0x0006, cXyz(1.0f, 1.0f, 1.0f));
 }
 
 // Lantern physics
@@ -410,7 +422,8 @@ static void renderLantern(daAlink_c *alink) {
 
 static void renderBow(daAlink_c *alink, bool shouldShowEquipment,
                       bool isBowInHand) {
-  if (!shouldShowEquipment || isBowInHand || s_customBowModel == nullptr) {
+  if (!shouldShowEquipment || isBowInHand || s_customBowModel == nullptr ||
+      alink == nullptr || alink->mSheathModel == nullptr) {
     return;
   }
 
@@ -539,11 +552,6 @@ static void invalidateEquipmentModels() {
 static bool syncEquipmentModelCache(daAlink_c *alink) {
   if (alink == nullptr || alink->getClothesChangeWaitTimer() != 0) {
     invalidateEquipmentModels();
-    s_cachedLinkInstance = nullptr;
-    s_cachedLinkModel = nullptr;
-    s_cachedArcName = nullptr;
-    s_cachedStageName[0] = '\0';
-    s_cachedRoomNo = -1;
     return false;
   }
 
@@ -594,7 +602,7 @@ static void on_alink_draw_post(ModContext *, void *, void *, void *) {
   }
 
   if (!alink->mpLinkModel || alink->mpLinkModel->getModelData() == nullptr ||
-      isWolfOrTransforming(alink)) {
+      isWolfOrTransforming(alink) || alink->getClothesChangeWaitTimer() != 0) {
     return;
   }
 
@@ -638,7 +646,7 @@ void update_visible_equipment(const LogService *log_svc, ModContext *mod_ctx) {
     return;
   }
 
-  if (!alink->mpLinkModel || isWolfOrTransforming(alink)) {
+  if (!alink->mpLinkModel || isWolfOrTransforming(alink) || alink->getClothesChangeWaitTimer() != 0) {
     return;
   }
 
