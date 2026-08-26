@@ -56,7 +56,7 @@ static bool isWolfPlayer() {
 }
 
 static bool isHorseCallItem(u8 itemNo) {
-    return itemNo == dItemNo_HORSE_FLUTE_e || itemNo == 0x4F || itemNo == 0x84;
+    return itemNo == dItemNo_HORSE_FLUTE_e || itemNo == 0x84;
 }
 
 static bool isHorseCallEquipped() {
@@ -230,7 +230,7 @@ static void on_meter2_draw_horse_call_post(ModContext*, void* args, void*, void*
     u8 alpha = juji->getAlpha();
 
     J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
-    if (midnaPane != nullptr) {
+    if (midnaPane != nullptr && midnaPane->isVisible()) {
         alpha = midnaPane->getAlpha();
     }
 

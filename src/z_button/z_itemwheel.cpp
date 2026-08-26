@@ -13,7 +13,6 @@ DEFINE_HOOK(&dMenu_Ring_c::setSelectItemForce, SetSelectItemForceHook);
 DEFINE_HOOK(&dMenu_Ring_c::isMixItemOn, IsMixItemOnHook);
 DEFINE_HOOK(&dMenu_Ring_c::isMixItemOff, IsMixItemOffHook);
 DEFINE_HOOK(&dMenu_Ring_c::checkExplainForce, CheckExplainForceHook);
-DEFINE_HOOK(&dComIfGp_getSelectItem, GetSelectItemHook);
 
 u8 get_ring_slot_for_item(dMenu_Ring_c* ring, u8 slotOrItem) {
     if (!ring || slotOrItem == 0xFF || slotOrItem == dItemNo_NONE_e) return 0xFF;
@@ -781,29 +780,6 @@ HookAction on_check_explain_force_pre(ModContext*, void* args, void* retval, voi
     return HOOK_SKIP_ORIGINAL;
 }
 
-HookAction on_get_select_item_pre(ModContext*, void* args, void* retval, void*) {
-    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args || !retval) {
-        return HOOK_CONTINUE;
-    }
-
-    int idx = mods::arg<int>(args, 0);
-    if (idx >= 0 && idx < 3) {
-        u8 slot = dComIfGs_getSelectItemIndex(idx);
-        if (slot != 0xFF && slot < 24) {
-            u8 rawItem = dComIfGs_getItem(slot, false);
-            u8 mix = dComIfGs_getMixItemIndex(idx);
-            if (mix != 0xFF && mix < 24) {
-                *reinterpret_cast<u8*>(retval) = combine_select_item(rawItem, mix);
-                return HOOK_SKIP_ORIGINAL;
-            }
-            if (idx == 2) {
-                *reinterpret_cast<u8*>(retval) = rawItem;
-                return HOOK_SKIP_ORIGINAL;
-            }
-        }
-    }
-    return HOOK_CONTINUE;
-}
 
 void on_check_status_post(ModContext*, void* args, void*, void*) {
     if (!g_configCustomZButtonEnabled || !args || isTitleOrMainMenu()) {

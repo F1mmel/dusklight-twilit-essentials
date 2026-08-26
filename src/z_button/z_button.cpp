@@ -89,7 +89,6 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     mods::hook::add_pre<IsMixItemOnHook>(hook_svc, on_is_mix_item_on_pre);
     mods::hook::add_pre<IsMixItemOffHook>(hook_svc, on_is_mix_item_off_pre);
     mods::hook::add_pre<CheckExplainForceHook>(hook_svc, on_check_explain_force_pre);
-    mods::hook::add_pre<GetSelectItemHook>(hook_svc, on_get_select_item_pre);
 
     return MOD_OK;
 }
