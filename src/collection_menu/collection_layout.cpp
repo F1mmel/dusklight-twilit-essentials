@@ -40,7 +40,7 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             oldHeap = mDoExt_setCurrentHeap(heap);
         }
 
-        // 1. Ordon Sword Frame (Slot 2, Row 0 - attached to frames parent):
+        // 1. Ordon Sword Frame (Slot 2, Row 0 - attached to frames parent)
         if (!s_picKenMidFrame && ken_g0 && ken_g0->getParentPane()) {
             const ResTIMG* frameTex = safe_get_tex_info(ken_g0);
             if (frameTex) {
@@ -60,7 +60,7 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             }
         }
 
-        // 1. Ordon Sword Icon (Slot 2, Row 0):
+        // 1. Ordon Sword Icon (Slot 2, Row 0)
         if (!s_paneKenMid && ken_n0 && ken_n0->getParentPane()) {
             s_paneKenMid = JKR_NEW J2DPane(ken_n0->getParentPane(), true, MULTI_CHAR('ken_mid'), ken_n0->mBounds);
             s_paneKenMid->setBasePosition((J2DBasePosition)ken_n0->mBasePosition);
@@ -78,7 +78,7 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             }
         }
 
-        // 2. Ordon Shield Frame (Slot 2, Row 1 - attached to frames parent):
+        // 2. Ordon Shield Frame (Slot 2, Row 1 - attached to frames parent)
         if (!s_picTateMidFrame && tate_g0 && tate_g0->getParentPane()) {
             const ResTIMG* frameTex = safe_get_tex_info(tate_g0);
             if (frameTex) {
@@ -98,7 +98,7 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             }
         }
 
-        // 2. Ordon Shield Icon (Slot 2, Row 1):
+        // 2. Ordon Shield Icon (Slot 2, Row 1)
         if (!s_paneTateMid && tate_n0 && tate_n0->getParentPane()) {
             s_paneTateMid = JKR_NEW J2DPane(tate_n0->getParentPane(), true, MULTI_CHAR('tate_mid'), tate_n0->mBounds);
             s_paneTateMid->setBasePosition((J2DBasePosition)tate_n0->mBasePosition);
@@ -116,7 +116,7 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             }
         }
 
-        // 3. Ordon Clothes Frame (Slot 1, Row 2 - attached to frames parent):
+        // 3. Ordon Clothes Frame (Slot 1, Row 2 - attached to frames parent)
         if (!s_picFukuStartFrame && fuku_g0 && fuku_g0->getParentPane()) {
             const ResTIMG* frameTex = safe_get_tex_info(fuku_g0);
             if (frameTex) {
@@ -136,7 +136,7 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             }
         }
 
-        // 3. Ordon Clothes Icon (Slot 1, Row 2):
+        // 3. Ordon Clothes Icon (Slot 1, Row 2)
         if (!s_paneFukuStart && fuku_n0 && fuku_n0->getParentPane()) {
             s_paneFukuStart = JKR_NEW J2DPane(fuku_n0->getParentPane(), true, MULTI_CHAR('fuku_ord'), fuku_n0->mBounds);
             s_paneFukuStart->setBasePosition((J2DBasePosition)fuku_n0->mBasePosition);
@@ -154,7 +154,7 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             }
         }
 
-        // 4. Sword Connector 2 (Slot 2 to Slot 3):
+        // 4. Sword Connector 2 (Slot 2 to Slot 3)
         if (!s_picTunagiKen2 && tunagi01 && tunagi01->getParentPane()) {
             const ResTIMG* tex = safe_get_tex_info(tunagi01);
             if (tex) {
@@ -166,7 +166,7 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             }
         }
 
-        // 5. Shield Connector 2 (Slot 2 to Slot 3):
+        // 5. Shield Connector 2 (Slot 2 to Slot 3)
         if (!s_picTunagiTate2 && tunagi03 && tunagi03->getParentPane()) {
             const ResTIMG* tex = safe_get_tex_info(tunagi03);
             if (tex) {
@@ -178,7 +178,7 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             }
         }
 
-        // 6. Clothes Connector 3 (Slot 3 to Slot 4):
+        // 6. Clothes Connector 3 (Slot 3 to Slot 4)
         if (!s_picTunagiFuku3 && tunagi06 && tunagi06->getParentPane()) {
             const ResTIMG* tex = safe_get_tex_info(tunagi06);
             if (tex) {
@@ -231,7 +231,7 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     f32 shieldFrameBaseX = baseX - 24.5f;
     f32 clothesFrameBaseX = baseX - 24.5f;
 
-    // Row 0 (Swords):
+    // Row 0 (Swords)
     set_pane_pos(ken_n0, baseX, s_ken_n0_origY);
     set_pane_pos(s_paneKenMid, baseX + dx, s_ken_n0_origY);
     set_pane_pos(ken_n1, baseX + 2.0f * dx, s_ken_n0_origY);
@@ -240,7 +240,7 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     set_pane_pos(ken_gm, swordFrameBaseX + dx, s_ken_g0_origY);
     set_pane_pos(ken_g1, swordFrameBaseX + 2.0f * dx, s_ken_g0_origY);
 
-    // Row 1 (Shields):
+    // Row 1 (Shields)
     set_pane_pos(tate_n0, baseX, s_tate_n0_origY);
     set_pane_pos(s_paneTateMid, baseX + dx, s_tate_n0_origY);
     set_pane_pos(tate_n1, baseX + 2.0f * dx, s_tate_n0_origY);
@@ -249,7 +249,7 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     set_pane_pos(tate_gm, shieldFrameBaseX + dx, s_tate_g0_origY);
     set_pane_pos(tate_g1, shieldFrameBaseX + 2.0f * dx, s_tate_g0_origY);
 
-    // Row 2 (Clothes):
+    // Row 2 (Clothes)
     set_pane_pos(s_paneFukuStart, baseX, s_fuku_n0_origY);
     set_pane_pos(fuku_n0, baseX + dx, s_fuku_n0_origY);
     set_pane_pos(fuku_n1, baseX + 2.0f * dx, s_fuku_n0_origY);
@@ -266,7 +266,7 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     set_pane_pos(kamen_n, s_kamen_n_origX + mirrorShiftX, s_kamen_n_origY);
     set_pane_pos(modelbgn, s_modelbgn_origX + mirrorShiftX - mirrorShiftX / 2.0f, s_modelbgn_origY);
 
-    // Ensure bounds and local translations on custom panes and children:
+    // Ensure bounds and local translations on custom panes and children
     if (s_paneKenMid) s_paneKenMid->mBounds.set(-22.5f, -22.5f, 22.5f, 22.5f);
     if (s_picKenMidFrame) s_picKenMidFrame->mBounds.set(-23.5f, -23.5f, 23.5f, 23.5f);
     if (s_picKenMidIcon) {
@@ -292,7 +292,7 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
         }
     }
 
-    // Connectors (tunagi):
+    // Connectors (tunagi)
     J2DPane* tunagi00 = screen->search(MULTI_CHAR('tunagi00'));
     J2DPane* tunagi01 = screen->search(MULTI_CHAR('tunagi01'));
     J2DPane* tunagi_k2 = screen->search(MULTI_CHAR('tuna_k2'));
@@ -306,17 +306,17 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     J2DPane* tunagi08 = screen->search(MULTI_CHAR('tunagi08'));
     J2DPane* tunagi_f3 = screen->search(MULTI_CHAR('tuna_f3'));
 
-    // Position Sword connectors:
+    // Position Sword connectors
     set_pane_pos(tunagi00, swordFrameBaseX - 0.5f * dx, -44.0f);
     set_pane_pos(tunagi01, swordFrameBaseX + 0.5f * dx, -44.0f);
     set_pane_pos(tunagi_k2, swordFrameBaseX + 1.5f * dx, -44.0f);
 
-    // Position Shield connectors:
+    // Position Shield connectors
     set_pane_pos(tunagi04, shieldFrameBaseX - 0.5f * dx, 13.0f);
     set_pane_pos(tunagi03, shieldFrameBaseX + 0.5f * dx, 13.0f);
     set_pane_pos(tunagi_t2, shieldFrameBaseX + 1.5f * dx, 13.0f);
 
-    // Position Clothes connectors:
+    // Position Clothes connectors
     set_pane_pos(tunagi07, clothesFrameBaseX - 0.5f * dx, 70.0f);
     set_pane_pos(tunagi06, clothesFrameBaseX + 0.5f * dx, 70.0f);
     if (tunagi08) {
@@ -339,7 +339,7 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
         s_picTunagiFuku3->mBounds.set(-6.0f, -18.0f, 6.0f, 18.0f);
     }
 
-    // Check item possession/unlocked status:
+    // Check item possession/unlocked status
     // Link always has Wooden Sword & Ordon Clothes from game start
     bool hasWoodSword = true;
 
@@ -369,21 +369,23 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     bool hasMagicArmor = dComIfGs_isItemFirstBit(dItemNo_ARMOR_e);
     if (dComIfGs_getSelectEquipClothes() == dItemNo_ARMOR_e) hasMagicArmor = true;
 
-    // Make all grid positions selectable by the cursor:
+    // Make all grid positions selectable by the cursor
     collect2D->field_0x22d[3][0] = 1;
     collect2D->field_0x22d[4][0] = 1;
     collect2D->field_0x22d[5][0] = 1;
+    collect2D->field_0x22d[6][0] = 1;
 
     collect2D->field_0x22d[3][1] = 1;
     collect2D->field_0x22d[4][1] = 1;
     collect2D->field_0x22d[5][1] = 1;
+    collect2D->field_0x22d[6][1] = 0;
 
     collect2D->field_0x22d[3][2] = 1;
     collect2D->field_0x22d[4][2] = 1;
     collect2D->field_0x22d[5][2] = 1;
     collect2D->field_0x22d[6][2] = 1;
 
-    // Connectors are ALWAYS drawn:
+    // Connectors are ALWAYS drawn
     if (tunagi00) tunagi00->show();
     if (tunagi01) tunagi01->show();
     if (tunagi_k2) tunagi_k2->show();
@@ -397,7 +399,7 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     if (tunagi08) tunagi08->show();
     if (tunagi_f3) tunagi_f3->show();
 
-    // Frames (rects) are ALWAYS drawn:
+    // Frames (rects) are ALWAYS drawn
     if (ken_g0) ken_g0->show();
     if (ken_gm) ken_gm->show();
     if (ken_g1) ken_g1->show();
@@ -411,13 +413,13 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     if (fuku_g1) fuku_g1->show();
     if (fuku_g2) fuku_g2->show();
 
-    // Synchronize scaling across custom panes:
+    // Synchronize scaling across custom panes
     if (ken_n0 && s_paneKenMid) s_paneKenMid->scale(ken_n0->getScaleX(), ken_n0->getScaleY());
     if (tate_n0 && s_paneTateMid) s_paneTateMid->scale(tate_n0->getScaleX(), tate_n0->getScaleY());
     if (fuku_n0 && s_paneFukuStart) s_paneFukuStart->scale(fuku_n0->getScaleX(), fuku_n0->getScaleY());
 
     // Inner item icons: only shown if the item is unlocked!
-    // 1. Swords:
+    // 1. Swords
     J2DPane* ken_00 = screen->search(MULTI_CHAR('ken_00'));
     J2DPane* ken_01 = screen->search(MULTI_CHAR('ken_01'));
     if (ken_n0) ken_n0->show();
@@ -429,10 +431,10 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
 
     if (ken_n1) { if (hasMasterSword) ken_n1->show(); else ken_n1->hide(); }
 
-    // Heart container:
-    if (heart_n) { if (hasHeart) heart_n->show(); else heart_n->hide(); }
+    // Heart container
+    if (heart_n) heart_n->show();
 
-    // 2. Shields:
+    // 2. Shields
     J2DPane* tate_00 = screen->search(MULTI_CHAR('tate_00'));
     J2DPane* tate_01 = screen->search(MULTI_CHAR('tate_01'));
     if (tate_n0) { if (hasWoodShield) tate_n0->show(); else tate_n0->hide(); }
@@ -444,7 +446,7 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
 
     if (tate_n1) { if (hasHylianShield) tate_n1->show(); else tate_n1->hide(); }
 
-    // 3. Clothes:
+    // 3. Clothes
     if (s_paneFukuStart) s_paneFukuStart->show();
     if (s_picFukuStartIcon) s_picFukuStartIcon->show();
 
@@ -460,7 +462,7 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     J2DPane* p2 = screen->search(MULTI_CHAR('fuku_02'));
     if (p2) { if (hasMagicArmor) p2->show(); else p2->hide(); }
 
-    // Set correct textures on all icon panes:
+    // Set correct textures on all icon panes
     if (ken_00) {
         const ResTIMG* tex = (const ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_item_icon_sword_a.bti");
         if (tex) static_cast<J2DPicture*>(ken_00)->changeTexture(tex, 0);
@@ -503,22 +505,22 @@ void update_frame_highlights(dMenu_Collect2D_c* collect2D) {
     u8 currentShield = dComIfGs_getSelectEquipShield();
     u8 currentClothes = dComIfGs_getSelectEquipClothes();
 
-    // 1. Swords:
-    // Slot 1 (Wooden Sword):
+    // 1. Swords
+    // Slot 1 (Wooden Sword)
     J2DPicture* ken_g0 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('ken_g_0')));
     if (ken_g0) {
         bool eq = (currentSword == dItemNo_WOOD_STICK_e);
         ken_g0->setBlackWhite(JUtility::TColor(0, 0, 0, 0),
                               eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
-    // Slot 2 (Ordon Sword):
+    // Slot 2 (Ordon Sword)
     J2DPicture* picKenMidFrame = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('ken_gm')));
     if (picKenMidFrame) {
         bool eq = (currentSword == dItemNo_SWORD_e);
         picKenMidFrame->setBlackWhite(JUtility::TColor(0, 0, 0, 0),
-                                      eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
+                              eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
-    // Slot 3 (Master Sword):
+    // Slot 3 (Master Sword)
     J2DPicture* ken_g1 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('ken_g_1')));
     if (ken_g1) {
         bool eq = (currentSword == dItemNo_MASTER_SWORD_e || currentSword == dItemNo_LIGHT_SWORD_e);
@@ -526,22 +528,22 @@ void update_frame_highlights(dMenu_Collect2D_c* collect2D) {
                               eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
 
-    // 2. Shields:
-    // Slot 1 (Wooden Shield):
+    // 2. Shields
+    // Slot 1 (Wooden Shield)
     J2DPicture* tate_g0 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('tate_g_0')));
     if (tate_g0) {
         bool eq = (currentShield == dItemNo_WOOD_SHIELD_e);
         tate_g0->setBlackWhite(JUtility::TColor(0, 0, 0, 0),
                                eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
-    // Slot 2 (Ordon Shield):
+    // Slot 2 (Ordon Shield)
     J2DPicture* picTateMidFrame = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('tate_gm')));
     if (picTateMidFrame) {
         bool eq = (currentShield == dItemNo_SHIELD_e);
         picTateMidFrame->setBlackWhite(JUtility::TColor(0, 0, 0, 0),
                                        eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
-    // Slot 3 (Hylian Shield):
+    // Slot 3 (Hylian Shield)
     J2DPicture* tate_g1 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('tate_g_1')));
     if (tate_g1) {
         bool eq = (currentShield == dItemNo_HYLIA_SHIELD_e);
@@ -549,29 +551,29 @@ void update_frame_highlights(dMenu_Collect2D_c* collect2D) {
                                eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
 
-    // 3. Clothes:
-    // Slot 1 (Ordon Clothes):
+    // 3. Clothes
+    // Slot 1 (Ordon Clothes)
     J2DPicture* picFukuStartFrame = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('fuku_go')));
     if (picFukuStartFrame) {
         bool eq = (currentClothes == dItemNo_WEAR_CASUAL_e);
         picFukuStartFrame->setBlackWhite(JUtility::TColor(0, 0, 0, 0),
                                          eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
-    // Slot 2 (Kokiri Tunic):
+    // Slot 2 (Kokiri Tunic)
     J2DPicture* fuku_g0 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('fuku_g_0')));
     if (fuku_g0) {
         bool eq = (currentClothes == dItemNo_WEAR_KOKIRI_e || (currentClothes != dItemNo_WEAR_CASUAL_e && currentClothes != dItemNo_WEAR_ZORA_e && currentClothes != dItemNo_ARMOR_e));
         fuku_g0->setBlackWhite(JUtility::TColor(0, 0, 0, 0),
                                eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
-    // Slot 3 (Zora Armor):
+    // Slot 3 (Zora Armor)
     J2DPicture* fuku_g1 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('fuku_g_1')));
     if (fuku_g1) {
         bool eq = (currentClothes == dItemNo_WEAR_ZORA_e);
         fuku_g1->setBlackWhite(JUtility::TColor(0, 0, 0, 0),
                                eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
-    // Slot 4 (Magic Armor):
+    // Slot 4 (Magic Armor)
     J2DPicture* fuku_g2 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('fuku_g_2')));
     if (fuku_g2) {
         bool eq = (currentClothes == dItemNo_ARMOR_e);
@@ -579,7 +581,7 @@ void update_frame_highlights(dMenu_Collect2D_c* collect2D) {
                                eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
 
-    // Keep all icon pictures in pristine, full brightness:
+    // Keep all icon pictures in pristine, full brightness
     J2DPicture* io = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('fuku_io')));
     if (io) {
         io->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
@@ -639,7 +641,7 @@ void on_screen_set_post(ModContext*, void* args, void*, void*) {
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D) return;
 
-    // Swords name/description string IDs:
+    // Swords name/description string IDs
     collect2D->field_0x184[3][0] = 0x1a4; // Wooden Sword
     collect2D->field_0x1d8[3][0] = 0x2a4;
     collect2D->field_0x184[4][0] = 0x18d; // Ordon Sword
@@ -649,7 +651,7 @@ void on_screen_set_post(ModContext*, void* args, void*, void*) {
     collect2D->field_0x184[6][0] = 0x186; // Heart Container
     collect2D->field_0x1d8[6][0] = 0x286;
 
-    // Shields name/description string IDs:
+    // Shields name/description string IDs
     collect2D->field_0x184[3][1] = 0x18f; // Wooden Shield
     collect2D->field_0x1d8[3][1] = 0x28f;
     collect2D->field_0x184[4][1] = 0x190; // Ordon Shield
@@ -657,7 +659,7 @@ void on_screen_set_post(ModContext*, void* args, void*, void*) {
     collect2D->field_0x184[5][1] = 0x191; // Hylian Shield
     collect2D->field_0x1d8[5][1] = 0x291;
 
-    // Clothes name/description string IDs:
+    // Clothes name/description string IDs
     collect2D->field_0x184[3][2] = 0x193; // Ordon Clothes
     collect2D->field_0x1d8[3][2] = 0x293;
     collect2D->field_0x184[4][2] = 0x194; // Kokiri Clothes
@@ -688,19 +690,19 @@ void on_screen_set_post(ModContext*, void* args, void*, void*) {
             }
         };
 
-        // Swords:
+        // Swords
         setupSelPm(3, 0, collect2D->mpScreen->search(MULTI_CHAR('ken_n0')));
         setupSelPm(4, 0, s_paneKenMid);
         setupSelPm(5, 0, collect2D->mpScreen->search(MULTI_CHAR('ken_n1')));
-        setupSelPm(6, 0, collect2D->mpScreen->search(MULTI_CHAR('heart_kn')));
+        setupSelPm(6, 0, collect2D->mpScreen->search(MULTI_CHAR('heart_n')));
 
-        // Shields:
+        // Shields
         setupSelPm(3, 1, collect2D->mpScreen->search(MULTI_CHAR('tate_n0')));
         setupSelPm(4, 1, s_paneTateMid);
         setupSelPm(5, 1, collect2D->mpScreen->search(MULTI_CHAR('tate_n1')));
         collect2D->mpSelPm[6][1] = nullptr;
 
-        // Clothes:
+        // Clothes
         setupSelPm(3, 2, s_paneFukuStart);
         setupSelPm(4, 2, collect2D->mpScreen->search(MULTI_CHAR('fuku_n0')));
         setupSelPm(5, 2, collect2D->mpScreen->search(MULTI_CHAR('fuku_n1')));

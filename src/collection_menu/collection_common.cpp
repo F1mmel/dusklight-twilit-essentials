@@ -7,7 +7,7 @@ J2DScreen* s_capturedScreen = nullptr;
 dMenu_Collect2D_c* s_currentCollect2D = nullptr;
 bool s_needReloadCollect = false;
 
-// Custom Panes:
+// Custom Panes
 // Swords: Slot 1 is ken_n0, Slot 2 is s_paneKenMid, Slot 3 is ken_n1
 J2DPane* s_paneKenMid = nullptr;
 J2DPicture* s_picKenMidFrame = nullptr;
@@ -23,7 +23,7 @@ J2DPane* s_paneFukuStart = nullptr;
 J2DPicture* s_picFukuStartFrame = nullptr;
 J2DPicture* s_picFukuStartIcon = nullptr;
 
-// Connectors (tunagi):
+// Connectors (tunagi)
 J2DPicture* s_picTunagiKen2 = nullptr;
 J2DPicture* s_picTunagiTate2 = nullptr;
 J2DPicture* s_picTunagiFuku3 = nullptr;

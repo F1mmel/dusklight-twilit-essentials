@@ -34,44 +34,7 @@ HookAction on_wait_proc_pre(ModContext*, void* args, void*, void*) {
     return HOOK_CONTINUE;
 }
 
-static bool is_collect_item_unlocked(u8 x, u8 y) {
-    if (y == 0) {
-        if (x == 3) return true; // Wooden Sword
-        if (x == 4) return dComIfGs_isItemFirstBit(dItemNo_SWORD_e); // Ordon Sword
-        if (x == 5) return dComIfGs_isItemFirstBit(dItemNo_MASTER_SWORD_e) || dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e); // Master Sword
-    } else if (y == 1) {
-        if (x == 3) return dComIfGs_isItemFirstBit(dItemNo_WOOD_SHIELD_e);
-        if (x == 4) return dComIfGs_isItemFirstBit(dItemNo_SHIELD_e);
-        if (x == 5) return dComIfGs_isItemFirstBit(dItemNo_HYLIA_SHIELD_e);
-    } else if (y == 2) {
-        if (x == 3) return true; // Ordon Clothes
-        if (x == 4) return dComIfGs_isItemFirstBit(dItemNo_WEAR_KOKIRI_e);
-        if (x == 5) return dComIfGs_isItemFirstBit(dItemNo_WEAR_ZORA_e);
-        if (x == 6) return dComIfGs_isItemFirstBit(dItemNo_ARMOR_e);
-    }
-    return false;
-}
 
-static bool is_collect_item_equipped(u8 x, u8 y) {
-    if (y == 0) {
-        if (x == 3) return dComIfGs_getSelectEquipSword() == dItemNo_WOOD_STICK_e;
-        if (x == 4) return dComIfGs_getSelectEquipSword() == dItemNo_SWORD_e;
-        if (x == 5) {
-            u8 sword = dComIfGs_getSelectEquipSword();
-            return sword == dItemNo_MASTER_SWORD_e || sword == dItemNo_LIGHT_SWORD_e;
-        }
-    } else if (y == 1) {
-        if (x == 3) return dComIfGs_getSelectEquipShield() == dItemNo_WOOD_SHIELD_e;
-        if (x == 4) return dComIfGs_getSelectEquipShield() == dItemNo_SHIELD_e;
-        if (x == 5) return dComIfGs_getSelectEquipShield() == dItemNo_HYLIA_SHIELD_e;
-    } else if (y == 2) {
-        if (x == 3) return dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_CASUAL_e;
-        if (x == 4) return dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_KOKIRI_e;
-        if (x == 5) return dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_ZORA_e;
-        if (x == 6) return dComIfGs_getSelectEquipClothes() == dItemNo_ARMOR_e;
-    }
-    return false;
-}
 
 void on_wait_proc_post(ModContext*, void* args, void*, void*) {
     if (!g_configCollectionStarterEquip || !args) return;

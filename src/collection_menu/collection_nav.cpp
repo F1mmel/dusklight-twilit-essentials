@@ -6,13 +6,16 @@ HookAction on_get_item_tag_pre(ModContext*, void* args, void* ret, void*) {
     int i_tag2 = mods::arg<int>(args, 2);
     bool param_3 = mods::arg<bool>(args, 3);
 
-    if (!param_3) return HOOK_CONTINUE;
+    if (i_tag2 == 5 && !param_3) {
+        *(u64*)ret = 0;
+        return HOOK_SKIP_ORIGINAL;
+    }
 
     if (i_tag2 == 0) {
         if (i_tag1 == 3) { *(u64*)ret = MULTI_CHAR('ken_n0'); return HOOK_SKIP_ORIGINAL; }
         if (i_tag1 == 4) { *(u64*)ret = MULTI_CHAR('ken_mid'); return HOOK_SKIP_ORIGINAL; }
         if (i_tag1 == 5) { *(u64*)ret = MULTI_CHAR('ken_n1'); return HOOK_SKIP_ORIGINAL; }
-        if (i_tag1 == 6) { *(u64*)ret = MULTI_CHAR('heart_kn'); return HOOK_SKIP_ORIGINAL; }
+        if (i_tag1 == 6) { *(u64*)ret = MULTI_CHAR('heart_n'); return HOOK_SKIP_ORIGINAL; }
     } else if (i_tag2 == 1) {
         if (i_tag1 == 3) { *(u64*)ret = MULTI_CHAR('tate_n0'); return HOOK_SKIP_ORIGINAL; }
         if (i_tag1 == 4) { *(u64*)ret = MULTI_CHAR('tate_mid'); return HOOK_SKIP_ORIGINAL; }
@@ -33,7 +36,7 @@ J2DPane* get_target_pane(dMenu_Collect2D_c* collect2D, u8 x, u8 y) {
         if (x == 3) return collect2D->mpScreen->search(MULTI_CHAR('ken_n0'));
         if (x == 4) return s_paneKenMid;
         if (x == 5) return collect2D->mpScreen->search(MULTI_CHAR('ken_n1'));
-        if (x == 6) return collect2D->mpScreen->search(MULTI_CHAR('heart_kn'));
+        if (x == 6) return collect2D->mpScreen->search(MULTI_CHAR('heart_n'));
     } else if (y == 1) {
         if (x == 3) return collect2D->mpScreen->search(MULTI_CHAR('tate_n0'));
         if (x == 4) return s_paneTateMid;
@@ -58,7 +61,7 @@ HookAction on_cursor_pos_set_pre(ModContext*, void* args, void*, void*) {
     u8 curX = collect2D->mCursorX;
     u8 curY = collect2D->mCursorY;
 
-    // Scale all panes:
+    // Scale all panes
     for (u8 y = 0; y < 6; y++) {
         for (u8 x = 0; x < 7; x++) {
             J2DPane* pane = get_target_pane(collect2D, x, y);
@@ -227,45 +230,56 @@ HookAction on_set_item_name_string_pre(ModContext*, void* args, void*, void*) {
     u8 y = mods::arg<u8>(args, 2);
     if (!collect2D || !collect2D->mpScreen) return HOOK_CONTINUE;
 
-    if (y == 0) {
-        if (x == 3) {
-            collect2D->field_0x180 = 0x1a4; // Wooden Sword
-            collect2D->mItemNameString = 0x2a4;
-        } else if (x == 4) {
-            collect2D->field_0x180 = 0x18d; // Ordon Sword
-            collect2D->mItemNameString = 0x28d;
-        } else if (x == 5) {
-            collect2D->field_0x180 = dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e) ? 0x1ae : 0x18e; // Master Sword
-            collect2D->mItemNameString = collect2D->field_0x180 + 0x100;
-        } else if (x == 6) {
-            collect2D->field_0x180 = 0x186; // Heart Container
-            collect2D->mItemNameString = 0x286;
+    if (x >= 3 && x <= 6 && y <= 2) {
+        if (!is_collect_item_unlocked(x, y)) {
+            collect2D->setItemNameStringNull();
+            return HOOK_SKIP_ORIGINAL;
         }
-    } else if (y == 1) {
-        if (x == 3) {
-            collect2D->field_0x180 = 0x18f; // Wooden Shield
-            collect2D->mItemNameString = 0x28f;
-        } else if (x == 4) {
-            collect2D->field_0x180 = 0x190; // Ordon Shield
-            collect2D->mItemNameString = 0x290;
-        } else if (x == 5) {
-            collect2D->field_0x180 = 0x191; // Hylian Shield
-            collect2D->mItemNameString = 0x291;
+
+        if (y == 0) {
+            if (x == 3) {
+                collect2D->field_0x180 = 0x1a4; // Wooden Sword
+                collect2D->mItemNameString = 0x2a4;
+            } else if (x == 4) {
+                collect2D->field_0x180 = 0x18d; // Ordon Sword
+                collect2D->mItemNameString = 0x28d;
+            } else if (x == 5) {
+                collect2D->field_0x180 = dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e) ? 0x1ae : 0x18e; // Master Sword
+                collect2D->mItemNameString = collect2D->field_0x180 + 0x100;
+            } else if (x == 6) {
+                collect2D->field_0x180 = 0x186; // Heart Container
+                collect2D->mItemNameString = 0x286;
+            }
+        } else if (y == 1) {
+            if (x == 3) {
+                collect2D->field_0x180 = 0x18f; // Wooden Shield
+                collect2D->mItemNameString = 0x28f;
+            } else if (x == 4) {
+                collect2D->field_0x180 = 0x190; // Ordon Shield
+                collect2D->mItemNameString = 0x290;
+            } else if (x == 5) {
+                collect2D->field_0x180 = 0x191; // Hylian Shield
+                collect2D->mItemNameString = 0x291;
+            }
+        } else if (y == 2) {
+            if (x == 3) {
+                collect2D->field_0x180 = 0x193; // Ordon Clothes
+                collect2D->mItemNameString = 0x293;
+            } else if (x == 4) {
+                collect2D->field_0x180 = 0x194; // Kokiri Clothes
+                collect2D->mItemNameString = 0x294;
+            } else if (x == 5) {
+                collect2D->field_0x180 = 0x196; // Zora Armor
+                collect2D->mItemNameString = 0x296;
+            } else if (x == 6) {
+                collect2D->field_0x180 = 0x195; // Magic Armor
+                collect2D->mItemNameString = 0x295;
+            }
         }
-    } else if (y == 2) {
-        if (x == 3) {
-            collect2D->field_0x180 = 0x193; // Ordon Clothes
-            collect2D->mItemNameString = 0x293;
-        } else if (x == 4) {
-            collect2D->field_0x180 = 0x194; // Kokiri Clothes
-            collect2D->mItemNameString = 0x294;
-        } else if (x == 5) {
-            collect2D->field_0x180 = 0x196; // Zora Armor
-            collect2D->mItemNameString = 0x296;
-        } else if (x == 6) {
-            collect2D->field_0x180 = 0x195; // Magic Armor
-            collect2D->mItemNameString = 0x295;
-        }
+
+        collect2D->field_0x184[x][y] = collect2D->field_0x180;
+        collect2D->field_0x1d8[x][y] = collect2D->mItemNameString;
+        return HOOK_CONTINUE;
     }
     return HOOK_CONTINUE;
 }
