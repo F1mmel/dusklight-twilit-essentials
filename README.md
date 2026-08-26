@@ -1,4 +1,4 @@
-# Twilit Essentials (v1.1.3)
+# Twilit Essentials (v1.1.4)
 
 A collection of quality-of-life improvements, combat tweaks, and visual enhancements for *The Legend of Zelda: Twilight Princess* on the [Dusklight](https://github.com/TwilitRealm/dusklight) engine.
 
@@ -35,6 +35,11 @@ A collection of quality-of-life improvements, combat tweaks, and visual enhancem
 
 ### Auto-Updater
 * Checks GitHub for new releases and allows updating directly in-game.
+
+### Multiplayer (Peer-to-Peer)
+* Play together with another player over LAN, Internet, or locally using two Dusklight instances (`127.0.0.1`).
+* Synchronizes 3D position, rotation, actions, health, and equipment between Host and Client.
+* Renders the remote player model in 3D with smooth interpolation and an overhead nametag with health bar.
 
 ### Mod Settings
 All features can be configured individually in real-time through the Dusklight Mod Manager menu.
