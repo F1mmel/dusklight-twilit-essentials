@@ -6,6 +6,7 @@
 #include "sheathed_spin/sheathed_spin.hpp"
 #include "puppet_zelda_pattern/puppet_zelda_pattern.hpp"
 #include "update_service.hpp"
+#include "collection_menu/collection_menu.hpp"
 
 #include "mods/svc/hook.hpp"
 #include "mods/service.hpp"
@@ -17,78 +18,157 @@
 #include "mods/svc/texture.h"
 
 #include "d/actor/d_a_title.h"
+#include "d/d_com_inf_game.h"
 #include "m_Do/m_Do_ext.h"
 #include "JSystem/JUtility/JUTFont.h"
 #include "JSystem/J2DGraph/J2DScreen.h"
 #include "JSystem/J2DGraph/J2DTextBox.h"
 
-#define MOD_TITLE_VERSION_TEXT "Twilit Essentials v" TWILIT_ESSENTIALS_VERSION
+#define MOD_TITLE_VERSION_TEXT "v" TWILIT_ESSENTIALS_VERSION
 
 DEFINE_HOOK(&dDlst_daTitle_c::draw, DlstTitleDrawHook);
+DEFINE_HOOK(&daTitle_c::loadWait_proc, TitleLoadWaitProcHook);
+DEFINE_HOOK(&daTitle_c::fastLogoDispInit, TitleFastLogoDispInitHook);
+DEFINE_HOOK(&daTitle_c::fastLogoDisp, TitleFastLogoDispExecuteHook);
 
-static HookAction on_title_draw_pre(ModContext*, void* args, void*, void*) {
-    if (!args) return HOOK_CONTINUE;
-    dDlst_daTitle_c* titleDraw = mods::arg<dDlst_daTitle_c*>(args, 0);
-    if (!titleDraw || !titleDraw->Scr) return HOOK_CONTINUE;
+static bool s_titleModActive = true;
 
-    J2DTextBox* modShadow = (J2DTextBox*)titleDraw->Scr->search(MULTI_CHAR('m_mshd'));
-    J2DTextBox* modText = (J2DTextBox*)titleDraw->Scr->search(MULTI_CHAR('m_mod'));
+struct daTitle_Access : public fopAc_ac_c {
+    request_of_phase_process_class mPhaseReq;
+    JKRHeap* mpHeap;
+    J3DModel* mpModel;
+    mDoExt_bckAnm mBck;
+    mDoExt_bpkAnm mBpk;
+    mDoExt_brkAnm mBrk;
+    mDoExt_btkAnm mBtk;
+    JKRExpHeap* m2DHeap;
+    mDoDvdThd_mountArchive_c* mpMount;
+    dDlst_daTitle_c mTitle;
+    JUTFont* mpFont;
+    u8 field_0x5f0[8];
+    u8 mIsDispLogo;
+    u8 field_0x5f9;
+    u8 field_0x5fa;
+    u8 mProcID;
+    u8 mWaitTimer;
+    CPaneMgrAlpha* field_0x600;
+    u8 field_0x604;
+};
 
-    if (modText == nullptr) {
+static void on_title_load_wait_proc_post(ModContext*, void* args, void*, void*) {
+    if (!args) return;
+    daTitle_Access* title = (daTitle_Access*)mods::arg<daTitle_c*>(args, 0);
+    if (!title || !title->mTitle.Scr) return;
+
+    if (title->mTitle.Scr->search(MULTI_CHAR('m_mod')) == nullptr) {
         JUTFont* font = mDoExt_getSubFont();
         if (font == nullptr) {
             font = mDoExt_getMesgFont();
         }
         ResFONT* resFont = (font != nullptr) ? font->getResFont() : nullptr;
 
-        JGeometry::TBox2<f32> shadowBox(-18.5f, 411.5f, 621.5f, 451.5f);
-        modShadow = JKR_NEW J2DTextBox(
-            MULTI_CHAR('m_mshd'),
-            shadowBox,
-            resFont,
-            MOD_TITLE_VERSION_TEXT,
-            64,
-            HBIND_CENTER,
-            VBIND_CENTER
-        );
-        if (modShadow != nullptr) {
-            if (font != nullptr) modShadow->setFont(font);
-            modShadow->setFontSize(16.0f, 16.0f);
-            modShadow->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(0, 0, 0, 220));
-            modShadow->setFontColor(JUtility::TColor(0, 0, 0, 220), JUtility::TColor(0, 0, 0, 220));
-            titleDraw->Scr->appendChild(modShadow);
+        const f32 posX = 473.5f;
+        const f32 posY = 255.0f;
+        const f32 fontSize = 16.0f;
+        const f32 charSpace = -1.8f;
+
+        // Smooth uniform black outline (16-point circle, no diagonal drop-shadow)
+        static const f32 offsets[16][2] = {
+            { 0.95f,  0.00f}, { 0.88f,  0.36f}, { 0.67f,  0.67f}, { 0.36f,  0.88f},
+            { 0.00f,  0.95f}, {-0.36f,  0.88f}, {-0.67f,  0.67f}, {-0.88f,  0.36f},
+            {-0.95f,  0.00f}, {-0.88f, -0.36f}, {-0.67f, -0.67f}, {-0.36f, -0.88f},
+            { 0.00f, -0.95f}, { 0.36f, -0.88f}, { 0.67f, -0.67f}, { 0.88f, -0.36f}
+        };
+
+        for (int i = 0; i < 16; i++) {
+            u32 tag = MULTI_CHAR('m_s0') + i;
+            JGeometry::TBox2<f32> shadowBox(posX + offsets[i][0], posY + offsets[i][1], posX + offsets[i][0] + 150.0f, posY + offsets[i][1] + 30.0f);
+            J2DTextBox* shadow = JKR_NEW J2DTextBox(
+                tag,
+                shadowBox,
+                resFont,
+                MOD_TITLE_VERSION_TEXT,
+                64,
+                HBIND_LEFT,
+                VBIND_CENTER
+            );
+            if (shadow != nullptr) {
+                if (font != nullptr) shadow->setFont(font);
+                shadow->setFontSize(fontSize, fontSize);
+                shadow->setCharSpace(charSpace);
+                shadow->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(0, 0, 0, 255));
+                shadow->setFontColor(JUtility::TColor(0, 0, 0, 255), JUtility::TColor(0, 0, 0, 255));
+                shadow->setAlpha(255);
+                title->mTitle.Scr->appendChild(shadow);
+            }
         }
 
-        JGeometry::TBox2<f32> box(-20.0f, 410.0f, 620.0f, 450.0f);
-        modText = JKR_NEW J2DTextBox(
+        // Main text box with pure white top and electric purple bottom
+        JGeometry::TBox2<f32> box(posX, posY, posX + 150.0f, posY + 30.0f);
+        J2DTextBox* modText = JKR_NEW J2DTextBox(
             MULTI_CHAR('m_mod'),
             box,
             resFont,
             MOD_TITLE_VERSION_TEXT,
             64,
-            HBIND_CENTER,
+            HBIND_LEFT,
             VBIND_CENTER
         );
         if (modText != nullptr) {
-            if (font != nullptr) {
-                modText->setFont(font);
-            }
-            modText->setFontSize(16.0f, 16.0f);
-            modText->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(210, 120, 255, 255));
-            modText->setFontColor(JUtility::TColor(210, 120, 255, 255), JUtility::TColor(170, 70, 220, 255));
-            titleDraw->Scr->appendChild(modText);
+            if (font != nullptr) modText->setFont(font);
+            modText->setFontSize(fontSize, fontSize);
+            modText->setCharSpace(charSpace);
+            modText->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
+            modText->setFontColor(JUtility::TColor(255, 255, 255, 255), JUtility::TColor(130, 10, 250, 255));
+            modText->setAlpha(255);
+            title->mTitle.Scr->appendChild(modText);
         }
     }
+}
 
-    // Match title screen alpha
-    J2DPane* nAll = titleDraw->Scr->search(MULTI_CHAR('n_all'));
-    if (nAll != nullptr) {
-        u8 alpha = nAll->getAlpha();
-        if (modText != nullptr) {
-            modText->setAlpha(alpha);
+static void on_title_fast_logo_disp_init_post(ModContext*, void* args, void*, void*) {
+    if (!args) return;
+    daTitle_Access* title = (daTitle_Access*)mods::arg<daTitle_c*>(args, 0);
+    if (title && s_titleModActive) {
+        title->mWaitTimer = 0;
+        title->field_0x5f9 = 1;
+        title->field_0x5fa = 1;
+        title->mIsDispLogo = 1;
+    }
+}
+
+static HookAction on_title_fast_logo_disp_pre(ModContext*, void* args, void*, void*) {
+    if (!args) return HOOK_CONTINUE;
+    daTitle_Access* title = (daTitle_Access*)mods::arg<daTitle_c*>(args, 0);
+    if (title && s_titleModActive) {
+        title->mWaitTimer = 0;
+        title->field_0x5f9 = 1;
+        title->field_0x5fa = 1;
+        title->mIsDispLogo = 1;
+    }
+    return HOOK_CONTINUE;
+}
+
+static HookAction on_title_draw_pre(ModContext*, void* args, void*, void*) {
+    if (!args) return HOOK_CONTINUE;
+    dDlst_daTitle_c* titleDraw = mods::arg<dDlst_daTitle_c*>(args, 0);
+    if (!titleDraw || !titleDraw->Scr) return HOOK_CONTINUE;
+
+    J2DPane* modText = titleDraw->Scr->search(MULTI_CHAR('m_mod'));
+
+    if (!s_titleModActive) {
+        if (modText != nullptr) modText->hide();
+        for (int i = 0; i < 16; i++) {
+            u32 tag = MULTI_CHAR('m_s0') + i;
+            J2DPane* shadow = titleDraw->Scr->search(tag);
+            if (shadow != nullptr) shadow->hide();
         }
-        if (modShadow != nullptr) {
-            modShadow->setAlpha((u8)((u32)alpha * 220 / 255));
+    } else {
+        if (modText != nullptr) modText->show();
+        for (int i = 0; i < 16; i++) {
+            u32 tag = MULTI_CHAR('m_s0') + i;
+            J2DPane* shadow = titleDraw->Scr->search(tag);
+            if (shadow != nullptr) shadow->show();
         }
     }
     return HOOK_CONTINUE;
@@ -131,6 +211,21 @@ static ConfigVarHandle s_varSheathedSpin = 0;
 static ConfigVarHandle s_varPuppetZeldaPattern = 0;
 static ConfigVarHandle s_varPuppetZeldaAlwaysShortest = 0;
 static ConfigVarHandle s_varCheckForUpdates = 0;
+static ConfigVarHandle s_varCollectionStarterEquip = 0;
+static ConfigVarHandle s_varCollectionUnequip = 0;
+
+static void on_collection_starter_equip_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
+    if (value) {
+        g_configCollectionStarterEquip = value->bool_value;
+        request_collection_menu_reload();
+    }
+}
+
+static void on_collection_unequip_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
+    if (value) {
+        g_configCollectionUnequip = value->bool_value;
+    }
+}
 
 static void on_sheathed_spin_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
     if (value) {
@@ -478,6 +573,26 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
         svc_ui->pane_add_control(mod_ctx, panel, &ctrlShortest, nullptr);
     }
 
+    // Collection Menu
+    svc_ui->pane_add_section(mod_ctx, panel, "Collection Menu");
+    svc_ui->pane_add_text(mod_ctx, panel, "Enhancements for the Collection screen.", nullptr);
+    if (s_varCollectionStarterEquip != 0) {
+        UiControlDesc ctrlStarter = UI_CONTROL_DESC_INIT;
+        ctrlStarter.kind = UI_CONTROL_TOGGLE;
+        ctrlStarter.label = "Add wooden sword and ordon clothes";
+        ctrlStarter.binding = UI_BINDING_CONFIG_VAR;
+        ctrlStarter.config_var = s_varCollectionStarterEquip;
+        svc_ui->pane_add_control(mod_ctx, panel, &ctrlStarter, nullptr);
+    }
+    if (s_varCollectionUnequip != 0) {
+        UiControlDesc ctrlUnequip = UI_CONTROL_DESC_INIT;
+        ctrlUnequip.kind = UI_CONTROL_TOGGLE;
+        ctrlUnequip.label = "Allow Unequipping";
+        ctrlUnequip.binding = UI_BINDING_CONFIG_VAR;
+        ctrlUnequip.config_var = s_varCollectionUnequip;
+        svc_ui->pane_add_control(mod_ctx, panel, &ctrlUnequip, nullptr);
+    }
+
     return MOD_OK;
 }
 
@@ -643,6 +758,24 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
             svc_config->get_bool(mod_ctx, s_varCheckForUpdates, &g_configCheckForUpdatesEnabled);
             svc_config->subscribe(mod_ctx, s_varCheckForUpdates, on_check_for_updates_changed, nullptr, nullptr);
         }
+
+        ConfigVarDesc descStarter = CONFIG_VAR_DESC_INIT;
+        descStarter.name = "collectionStarterEquip";
+        descStarter.type = CONFIG_VAR_BOOL;
+        descStarter.default_bool = false;
+        if (svc_config->register_var(mod_ctx, &descStarter, &s_varCollectionStarterEquip) == MOD_OK) {
+            svc_config->get_bool(mod_ctx, s_varCollectionStarterEquip, &g_configCollectionStarterEquip);
+            svc_config->subscribe(mod_ctx, s_varCollectionStarterEquip, on_collection_starter_equip_changed, nullptr, nullptr);
+        }
+
+        ConfigVarDesc descUnequip = CONFIG_VAR_DESC_INIT;
+        descUnequip.name = "collectionUnequip";
+        descUnequip.type = CONFIG_VAR_BOOL;
+        descUnequip.default_bool = false;
+        if (svc_config->register_var(mod_ctx, &descUnequip, &s_varCollectionUnequip) == MOD_OK) {
+            svc_config->get_bool(mod_ctx, s_varCollectionUnequip, &g_configCollectionUnequip);
+            svc_config->subscribe(mod_ctx, s_varCollectionUnequip, on_collection_unequip_changed, nullptr, nullptr);
+        }
     }
 
     if (svc_ui) {
@@ -653,6 +786,9 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
 
     if (svc_hook) {
         mods::hook::add_pre<DlstTitleDrawHook>(svc_hook, on_title_draw_pre);
+        mods::hook::add_post<TitleLoadWaitProcHook>(svc_hook, on_title_load_wait_proc_post);
+        mods::hook::add_post<TitleFastLogoDispInitHook>(svc_hook, on_title_fast_logo_disp_init_post);
+        mods::hook::add_pre<TitleFastLogoDispExecuteHook>(svc_hook, on_title_fast_logo_disp_pre);
     }
 
     ModResult res = init_hp_bars(svc_hook, error);
@@ -668,7 +804,9 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     init_sheathed_spin(svc_hook);
     init_puppet_zelda_pattern(svc_hook, error);
     init_update_service(svc_log, mod_ctx, svc_ui, svc_config, s_varCheckForUpdates);
+    init_collection_menu(svc_hook, svc_log, mod_ctx, error);
 
+    s_titleModActive = true;
     if (svc_log) svc_log->info(mod_ctx, "Twilit Essentials initialized");
     return MOD_OK;
 }
@@ -682,16 +820,19 @@ MOD_EXPORT ModResult mod_update(ModError*) {
     update_sheathed_spin(svc_log, mod_ctx);
     update_puppet_zelda_pattern(svc_log, mod_ctx);
     update_update_service(svc_log, mod_ctx, svc_ui);
+    update_collection_menu(svc_log, mod_ctx);
     return MOD_OK;
 }
 
 MOD_EXPORT ModResult mod_shutdown(ModError*) {
+    s_titleModActive = false;
     shutdown_hp_bars();
     shutdown_damage_numbers();
     shutdown_visible_equipment();
     shutdown_z_button();
     shutdown_horse_call();
     shutdown_update_service();
+    shutdown_collection_menu();
     return MOD_OK;
 }
 }
