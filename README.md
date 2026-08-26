@@ -1,4 +1,4 @@
-# Twilit Essentials (v1.1.4)
+# Twilit Essentials (v1.1.5)
 
 A collection of quality-of-life improvements, combat tweaks, and visual enhancements for *The Legend of Zelda: Twilight Princess* on the [Dusklight](https://github.com/TwilitRealm/dusklight) engine.
 
@@ -32,6 +32,10 @@ A collection of quality-of-life improvements, combat tweaks, and visual enhancem
 ### Puppet Zelda Fixed Pattern
 * Removes RNG from Puppet Zelda's attacks with a consistent 7-step pattern.
 * Option to always force the shortest attack (Sword Dive).
+
+### Collection Menu Enhancements
+* Adds extra equipment slots for the Wooden Sword and Ordon Clothes in the Collection screen.
+* Option to unequip swords and shields by selecting them again.
 
 ### Auto-Updater
 * Checks GitHub for new releases and allows updating directly in-game.

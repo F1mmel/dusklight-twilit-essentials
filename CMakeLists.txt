@@ -31,8 +31,10 @@ add_mod(dusklight_twilit_essentials
             src/sheathed_spin/sheathed_spin.cpp
             src/puppet_zelda_pattern/puppet_zelda_pattern.cpp
             src/update_service.cpp
+            src/collection_menu/collection_menu.cpp
         MOD_JSON mod.json
         RES_DIR res
+        TEXTURES_DIR textures
 )
 
 target_compile_definitions(dusklight_twilit_essentials PRIVATE TWILIT_ESSENTIALS_VERSION="${TWILIT_ESSENTIALS_VER}")
