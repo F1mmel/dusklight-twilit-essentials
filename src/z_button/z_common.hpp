@@ -19,6 +19,7 @@
 #include "JSystem/J2DGraph/J2DPicture.h"
 #define private public
 #include "d/d_menu_ring.h"
+#include "d/d_meter_button.h"
 #undef private
 #include "d/d_pane_class.h"
 #include "d/d_kantera_icon_meter.h"
@@ -88,10 +89,10 @@ void sync_play_select_item(int index);
 
 // Safe CPaneMgr wrappers
 inline bool pane_is_ready(CPaneMgr* p) { return p != nullptr && p->getPanePtr() != nullptr; }
-inline void safe_pane_hide(CPaneMgr* p) { if (pane_is_ready(p)) p->hide(); }
-inline void safe_pane_show(CPaneMgr* p) { if (pane_is_ready(p)) p->show(); }
+inline void safe_pane_hide(CPaneMgr* p) { if (pane_is_ready(p)) p->getPanePtr()->hide(); }
+inline void safe_pane_show(CPaneMgr* p) { if (pane_is_ready(p)) p->getPanePtr()->show(); }
 inline void safe_pane_resize(CPaneMgr* p, f32 w, f32 h) { if (pane_is_ready(p)) p->resize(w, h); }
 inline void safe_pane_trans(CPaneMgr* p, f32 x, f32 y) { if (pane_is_ready(p)) p->paneTrans(x, y); }
 inline void safe_pane_scale(CPaneMgr* p, f32 s) { if (pane_is_ready(p)) p->scale(s, s); }
 inline void safe_pane_alpha_rate(CPaneMgr* p, f32 a) { if (pane_is_ready(p)) p->setAlphaRate(a); }
-inline void safe_pane_alpha(CPaneMgr* p, u8 a) { if (pane_is_ready(p)) p->setAlpha(a); }
+inline void safe_pane_alpha(CPaneMgr* p, u8 a) { if (pane_is_ready(p)) p->getPanePtr()->setAlpha(a); }

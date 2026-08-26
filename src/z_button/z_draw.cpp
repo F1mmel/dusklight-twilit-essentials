@@ -111,34 +111,37 @@ void update_z_item_texture(dMeter2Draw_c* draw) {
 
         g_zTexBufIdx = (g_zTexBufIdx == 0) ? 1 : 0;
 
-        mainBuf  = reinterpret_cast<ResTIMG*>(g_zTexBufMain[g_zTexBufIdx]);
+        mainBuf = reinterpret_cast<ResTIMG*>(g_zTexBufMain[g_zTexBufIdx]);
         shineBuf = reinterpret_cast<ResTIMG*>(g_zTexBufShine[g_zTexBufIdx]);
 
         int readResult = dMeter2Info_readItemTexture(
             zItem,
             mainBuf,
-            mainPic,
+            nullptr,
             shineBuf,
-            shinePic,
+            nullptr,
             nullptr, nullptr, nullptr, nullptr, -1);
 
         if (readResult == 0) {
             g_lastLoadedZItem = 0xFF;
             g_cachedZMainPic = nullptr;
+        } else {
+            if (mainPic) {
+                mainPic->changeTexture(mainBuf, 0);
+            }
+            if (shinePic) {
+                if (readResult > 1 || isComboItem) {
+                    shinePic->changeTexture(shineBuf, 0);
+                    shinePic->show();
+                    shinePic->setAlpha(255);
+                } else {
+                    shinePic->hide();
+                }
+            }
+            dMeter2Info_setItemColor(zItem, mainPic, shinePic, nullptr, nullptr);
         }
 
         g_zHasSecondLayer = (readResult > 1 || isComboItem);
-
-        if (shinePic) {
-            if (g_zHasSecondLayer) {
-                shinePic->changeTexture(shineBuf, 0);
-                shinePic->show();
-                shinePic->setAlpha(255);
-            } else {
-                shinePic->hide();
-            }
-        }
-        dMeter2Info_setItemColor(zItem, mainPic, shinePic, nullptr, nullptr);
     } else {
         if (shinePic) {
             if (g_zHasSecondLayer) {

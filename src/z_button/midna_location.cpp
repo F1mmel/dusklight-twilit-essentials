@@ -2,6 +2,8 @@
 
 #include "midna_location.hpp"
 
+DEFINE_HOOK(&dMeterButton_c::_execute, MeterButtonExecuteHook);
+
 void update_midna_pane(dMeter2Draw_c* draw) {
     if (draw == nullptr) return;
     J2DScreen* screen = draw->getMainScreenPtr();
@@ -25,6 +27,14 @@ void update_midna_pane(dMeter2Draw_c* draw) {
             }
             midnaPane->move(-18.0f, 0.0f);
             midnaPane->show();
+        }
+    }
+
+    if (g_configCustomZButtonEnabled) {
+        J2DPane* z_btnl_main = screen->search(MULTI_CHAR('z_btnl'));
+        if (z_btnl_main) {
+            z_btnl_main->hide();
+            z_btnl_main->setAlpha(0);
         }
     }
 }
@@ -54,4 +64,107 @@ void reset_midna_pane() {
             }
         }
     }
+}
+
+#include "mods/svc/resource.h"
+
+extern const ResourceService* get_resource_service();
+
+static ResourceBuffer s_dpadLeftBtiBuf = RESOURCE_BUFFER_INIT;
+
+static ResTIMG* get_dpad_left_texture() {
+    if (s_dpadLeftBtiBuf.data == nullptr) {
+        const ResourceService* res_svc = get_resource_service();
+        ModContext* ctx = g_zModCtx;
+        if (res_svc != nullptr && ctx != nullptr) {
+            res_svc->load(ctx, "textures/dpad_left.bti", &s_dpadLeftBtiBuf);
+        }
+    }
+
+    if (s_dpadLeftBtiBuf.data != nullptr) {
+        return reinterpret_cast<ResTIMG*>(s_dpadLeftBtiBuf.data);
+    }
+    return nullptr;
+}
+
+static void update_custom_z_button_prompt(dMeterButton_c* meterButton) {
+    if (!meterButton || !meterButton->mpButtonScreen) return;
+
+    J2DScreen* buttonScreen = meterButton->mpButtonScreen;
+    J2DPicture* zbtnPic = static_cast<J2DPicture*>(buttonScreen->search('zbtn'));
+    J2DPane* zbtn_n = buttonScreen->search(MULTI_CHAR('zbtn_n'));
+    J2DPane* midonaPane = buttonScreen->search(MULTI_CHAR('midona'));
+    J2DPane* z_btnl = buttonScreen->search(MULTI_CHAR('z_btnl'));
+
+    static const ResTIMG* s_origZbtnTex = nullptr;
+    static JUtility::TColor s_origBlack(0, 0, 0, 0);
+    static JUtility::TColor s_origWhite(255, 255, 255, 255);
+    static bool s_hasOrigProps = false;
+
+    if (zbtnPic) {
+        if (!s_origZbtnTex && zbtnPic->getTexture(0)) {
+            s_origZbtnTex = zbtnPic->getTexture(0)->getTexInfo();
+        }
+        if (!s_hasOrigProps) {
+            s_origBlack = zbtnPic->getBlack();
+            s_origWhite = zbtnPic->getWhite();
+            s_hasOrigProps = true;
+        }
+
+        if (g_configCustomZButtonEnabled) {
+            ResTIMG* dpadTex = get_dpad_left_texture();
+            if (dpadTex && zbtnPic->getTexture(0) && zbtnPic->getTexture(0)->getTexInfo() != dpadTex) {
+                zbtnPic->changeTexture(dpadTex, 0);
+            }
+            zbtnPic->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
+
+            // Hide only the letter "Z" components inside zbtn_n
+            if (z_btnl) {
+                z_btnl->hide();
+                z_btnl->setAlpha(0);
+            }
+            if (zbtn_n) {
+                for (J2DPane* child = zbtn_n->getFirstChildPane(); child != nullptr; child = child->getNextChildPane()) {
+                    if (child == zbtnPic || child == midonaPane) {
+                        continue;
+                    }
+                    child->hide();
+                    child->setAlpha(0);
+                }
+            }
+        } else {
+            if (s_origZbtnTex && zbtnPic->getTexture(0) && zbtnPic->getTexture(0)->getTexInfo() != s_origZbtnTex) {
+                zbtnPic->changeTexture(s_origZbtnTex, 0);
+            }
+            if (s_hasOrigProps) {
+                zbtnPic->setBlackWhite(s_origBlack, s_origWhite);
+            }
+            if (z_btnl) {
+                z_btnl->show();
+                z_btnl->setAlpha(255);
+            }
+        }
+    }
+}
+
+DEFINE_HOOK(&dMeterButton_c::draw, MeterButtonDrawHook);
+
+HookAction on_meter_button_execute_pre(ModContext*, void* args, void*, void*) {
+    if (isTitleOrMainMenu() || !args) return HOOK_CONTINUE;
+    dMeterButton_c* meterButton = mods::arg<dMeterButton_c*>(args, 0);
+    update_custom_z_button_prompt(meterButton);
+    return HOOK_CONTINUE;
+}
+
+void on_meter_button_execute_post(ModContext*, void* args, void*, void*) {
+    if (isTitleOrMainMenu() || !args) return;
+    dMeterButton_c* meterButton = mods::arg<dMeterButton_c*>(args, 0);
+    update_custom_z_button_prompt(meterButton);
+}
+
+HookAction on_meter_button_draw_pre(ModContext*, void* args, void*, void*) {
+    if (isTitleOrMainMenu() || !args) return HOOK_CONTINUE;
+    dMeterButton_c* meterButton = mods::arg<dMeterButton_c*>(args, 0);
+    update_custom_z_button_prompt(meterButton);
+    return HOOK_CONTINUE;
 }

@@ -465,7 +465,7 @@ HookAction on_set_select_item_force_pre(ModContext*, void* args, void*, void*) {
 }
 
 HookAction on_set_select_item_index_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCustomZButtonEnabled || !args) {
+    if (!g_configCustomZButtonEnabled || !args || g_inSetSelectItemIndex) {
         return HOOK_CONTINUE;
     }
 

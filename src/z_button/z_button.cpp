@@ -89,6 +89,9 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     mods::hook::add_pre<IsMixItemOnHook>(hook_svc, on_is_mix_item_on_pre);
     mods::hook::add_pre<IsMixItemOffHook>(hook_svc, on_is_mix_item_off_pre);
     mods::hook::add_pre<CheckExplainForceHook>(hook_svc, on_check_explain_force_pre);
+    mods::hook::add_pre<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_pre);
+    mods::hook::add_post<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_post);
+    mods::hook::add_pre<MeterButtonDrawHook>(hook_svc, on_meter_button_draw_pre);
 
     return MOD_OK;
 }
@@ -101,10 +104,15 @@ void update_z_button(const LogService* log_svc, ModContext* mod_ctx) {
     g_zLogSvc = log_svc;
     g_zModCtx = mod_ctx;
 
+    static bool s_wasActive = false;
     if (!g_configCustomZButtonEnabled || isTitleOrMainMenu()) {
-        shutdown_z_button();
+        if (s_wasActive) {
+            shutdown_z_button();
+            s_wasActive = false;
+        }
         return;
     }
+    s_wasActive = true;
 
     if (g_configCustomZButtonEnabled) {
         f32 scale = 0.85f;
@@ -123,9 +131,9 @@ void update_z_button(const LogService* log_svc, ModContext* mod_ctx) {
 void shutdown_z_button() {
     g_zKanteraIcon = nullptr;
 
-    g_drawDigitPic[0] = nullptr;
-    g_drawDigitPic[1] = nullptr;
-    g_drawDigitPic[2] = nullptr;
+    for (int i = 0; i < 3; i++) {
+        g_drawDigitPic[i] = nullptr;
+    }
 
     g_cachedZMainPic = nullptr;
     g_lastLoadedZItem = 0xFF;
@@ -133,5 +141,14 @@ void shutdown_z_button() {
     g_dpadLeftHeld = false;
     g_dpadLeftTrig = false;
 
-    reset_midna_pane();
+    if (!isTitleOrMainMenu() && g_meter2_info.getMeterClass() != nullptr) {
+        dMeter2Draw_c* draw = g_meter2_info.getMeterClass()->getMeterDrawPtr();
+        if (draw) {
+            CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
+            if (itemR) {
+                safe_pane_hide(itemR);
+            }
+        }
+        reset_midna_pane();
+    }
 }

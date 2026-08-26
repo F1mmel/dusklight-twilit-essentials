@@ -58,11 +58,17 @@ void ensure_z_buffers() {
 }
 
 void sync_z_item_state() {
+    if (g_inSetSelectItemIndex) return;
+    g_inSetSelectItemIndex = true;
+
     u8 zSlot = dComIfGs_getSelectItemIndex(2);
     if (zSlot == 0xFF || zSlot >= 24) {
         zSlot = g_zInventorySlot;
     }
-    if (zSlot == 0xFF || zSlot >= 24) return;
+    if (zSlot == 0xFF || zSlot >= 24) {
+        g_inSetSelectItemIndex = false;
+        return;
+    }
 
     g_zInventorySlot = zSlot;
     u8 zMix = dComIfGs_getMixItemIndex(2);
@@ -74,6 +80,8 @@ void sync_z_item_state() {
     dComIfGs_setSelectItemIndex(2, zSlot);
     dComIfGs_setMixItemIndex(2, zMix);
     g_dComIfG_gameInfo.play.setSelectItem(2, combinedItem);
+
+    g_inSetSelectItemIndex = false;
 }
 
 void ensure_z_slot_initialized() {
