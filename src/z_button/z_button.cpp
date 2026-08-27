@@ -53,7 +53,7 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     mods::hook::add_pre<SetActiveCursorHook>(hook_svc, on_set_active_cursor_pre);
     mods::hook::add_post<SetActiveCursorHook>(hook_svc, on_set_active_cursor_post);
 
-    // Android / iOS touch Z-button icon + equip-target sync (no-op elsewhere)
+    // Android / iOS touch Z-button icon
     z_mobile_init(hook_svc);
 
     if (isNativeZButtonEngine()) {

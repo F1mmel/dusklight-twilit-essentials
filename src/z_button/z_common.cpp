@@ -133,24 +133,12 @@ bool is_bomb_item(u8 itemNo) {
 bool g_zDimX = false;
 bool g_zDimY = false;
 
-// Declared in z_mobile.hpp, which includes this header; forward-declared here to
-// keep z_common free of the include cycle.
 bool z_mobile_wants_midona_host();
 
 bool z_items_dimmed() {
-    // Nothing greys out while the item wheel is up -- X/Y stay lit there too.
     if (dMeter2Info_getWindowStatus() == 2) {
         return false;
     }
-    // dMeter2Draw_c::setButtonIconAlpha dims X on !isUseButton(X) and Y on
-    // !isUseButton(Y), but has no dim branch at all for i_no == 2 -- vanilla
-    // never puts an item on Z. Mirror X/Y for the Z slot.
-    //
-    // The flags can't be sampled here: dMeter2_c::_execute ends with
-    // allUseButton() (every bit set) and the game clears the unusable ones again
-    // during the next frame, so outside that window they always read "usable".
-    // on_set_button_icon_alpha_pre latches them at the exact point the engine
-    // itself evaluates them.
     return g_zDimX && g_zDimY;
 }
 
@@ -168,7 +156,6 @@ u8 z_button_base_alpha() {
 }
 
 bool z_item_is_lantern(u8 itemNo) {
-    // 0x48 is dItemNo_KANTERA_e; 0xF8 is the "lantern is out" variant.
     return itemNo == dItemNo_KANTERA_e || itemNo == dItemNo_KANTERA2_e;
 }
 
@@ -255,10 +242,6 @@ bool is_pause_menu_open(dMeter2Draw_c* draw) {
     if (winStatus != 0) return true;
 
 #if !Z_MOBILE_BUILD
-    // Heuristic: the HUD button container fades out while a menu takes over.
-    // Useless on mobile -- dMeter2Draw_c::draw() unconditionally hides the whole
-    // button parent whenever touch controls are on, so cont_n says nothing about
-    // pausing there and this check would report "paused" during normal play.
     if (draw == nullptr && g_meter2_info.getMeterClass() != nullptr) {
         draw = g_meter2_info.getMeterClass()->getMeterDrawPtr();
     }

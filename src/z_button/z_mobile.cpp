@@ -1,80 +1,5 @@
 #pragma once
 
-// ===========================================================================
-//  z_mobile.cpp  --  Android / iOS only Z-button support
-// ---------------------------------------------------------------------------
-//  Compiled everywhere, but every routine collapses to a no-op unless
-//  Z_MOBILE_BUILD is set (see z_mobile.hpp), so it only ever runs on mobile.
-//
-//  How the touch buttons work in Dusklight
-//  ---------------------------------------
-//  The on-screen buttons are an RML overlay (`dusk::ui::TouchControls`), not
-//  the J2D HUD. Each frame `TouchControls::sync_control_displays()` asks for a
-//  per-button state and pushes it into the DOM:
-//
-//    X / Y : icon   <- item_icon_source_for_button()  ->  "item://item/<hex>"
-//            count  <- item_count_label_for_button()  ->  <count class="item-count">
-//            oil    <- item_oil_fill_for_button()     ->  <oil-meter><oil-fill>
-//    B     : icon only
-//    Z     : icon   <- midna_icon_source()            ->  "meter://midna"
-//            (no count / oil elements exist in the Z button's RML at all)
-//
-//  The Z button is hard-wired to Midna, so this mod's Z item never shows up.
-//  Worse, `sync_equip_target(2, ...)` -- the screen rect that
-//  `dMenu_Ring_c::drawSelectItem` animates the item towards -- is only filled
-//  in when the Z button reports `showIcon`, so the item-wheel animation flew
-//  to a stale HUD position instead of the real button.
-//
-//  What this file does
-//  -------------------
-//  1. Post-hooks `dusk::ui::midna_icon_source()` / `midna_icon_revision()` and
-//     returns the Z item's own "item://item/<hex>" source. That is the exact
-//     same path X/Y use, so the icon is rendered from the item texture at full
-//     opacity (the old approach re-rendered the `midona_n` HUD pane, which
-//     baked that pane's fade alpha into the icon -- hence the see-through
-//     icon that only appeared while the item wheel forced the pane visible).
-//     Dusklight then also syncs the Z equip target on its own, which fixes the
-//     wheel animation.
-//
-//  2. Adds the missing count / oil-meter to the Z button. The Z button's RML is
-//     `<button id="button-z"><img class="midna-icon"/><span>Z</span></button>`,
-//     so child 1 (the label span) is repurposed as a full-size container and
-//     its inner RML is rewritten with the "Z" label plus a `<count>` or
-//     `<oil-meter>` using dusklight's own CSS classes.
-//     To know *which* DOM element is the Z button we watch for the
-//     `SetClass("has-icon", ...)` call that sync_control_displays only ever
-//     makes on that button.
-//
-//  3. Blocks the involuntary iron-boots un-equip (see the boots section below).
-//
-//  `src/dusk` symbols are excluded from the Android/iOS export list, so they
-//  can't be linked or dlsym'd -- but the SDK hook service resolves them from
-//  the symbol manifest embedded in the game image, which is what
-//  DEFINE_HOOK_SYMBOL and `svc_hook->resolve()` use here. Approach follows the
-//  user's own dawnlight mod (src/item_slot_hooks.cpp).
-//
-//  Fallback for builds with no embedded manifest
-//  --------------------------------------------
-//  Not every Dusklight build embeds one ("no symbol manifest for this build" in
-//  the log). Then none of the above resolves and we fall back to the only
-//  bridge that plain member-function hooks can reach: `midona_n`.
-//  `setButtonIconMidonaAlpha()` ends with
-//  `update_midna_icon_texture(mpButtonMidona->getPanePtr())`, which renders that
-//  pane into the touch Z button's texture -- so parenting the Z item pane into
-//  `midona_n` puts the item on the touch button. Two things must be forced for
-//  that to actually produce a visible, opaque icon:
-//    * `dMeter2Info_onUseButton(METER2_USEBUTTON_Z)`, otherwise the function
-//      takes its zero / "dim" alpha branch and CPaneMgr::setAlpha cascades that
-//      alpha down into our item pane -- which is what made the icon see-through
-//      and invisible outside the item wheel (the wheel sets that flag itself).
-//    * `mButtonZAlpha = 1`, to skip the fade-in ramp.
-//  This has no on-screen side effect: with touch controls, dMeter2Draw_c::draw()
-//  hides the whole J2D button parent every frame, so `midona_n` is only ever
-//  seen through the render-to-texture.
-//  The fallback cannot supply the count / oil meter (that needs the RML DOM,
-//  hence the manifest).
-// ===========================================================================
-
 #include "z_mobile.hpp"
 
 #if Z_MOBILE_BUILD
@@ -83,7 +8,7 @@
 #include <cstdio>
 #include <string>
 
-// Itanium-mangled names, valid for the Android/iOS (libc++) builds only.
+// Itanium-mangled names, valid for the Android/iOS (libc++) builds only. hopefully not needed in the future anymore
 #define Z_SYM_MIDNA_SOURCE "_ZN4dusk2ui17midna_icon_sourceEv"
 #define Z_SYM_MIDNA_REVISION "_ZN4dusk2ui19midna_icon_revisionEv"
 #define Z_SYM_SYNC_DISPLAYS "_ZN4dusk2ui13TouchControls21sync_control_displaysEv"
@@ -96,8 +21,6 @@
     "_ZN3Rml7Element11SetPropertyERKNSt6__ndk112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEES9_"
 #define Z_SYM_GET_EQUIP_TARGET "_ZN4dusk2ui16get_equip_targetEiRNS0_11EquipTargetE"
 
-// Rml::Element / TouchControls are opaque here: the mod SDK ships no RmlUi or
-// dusk headers, and we only ever pass the pointers straight back.
 DEFINE_HOOK_SYMBOL(Z_SYM_MIDNA_SOURCE, std::string(), ZMidnaIconSourceHook);
 DEFINE_HOOK_SYMBOL(Z_SYM_MIDNA_REVISION, uint64_t(), ZMidnaIconRevisionHook);
 DEFINE_HOOK_SYMBOL(Z_SYM_SYNC_DISPLAYS, void(void*), ZTouchSyncDisplaysHook);
@@ -132,8 +55,6 @@ void* s_meterButton = nullptr;
 void* s_meterContainer = nullptr;
 std::string s_meterRml;
 
-// Set when the icon hooks could not be installed (no symbol manifest in this
-// game build); the `midona_n` render-to-texture fallback takes over.
 bool s_useCaptureFallback = false;
 J2DPane* s_hostedMidona = nullptr;
 bool s_hostActive = false;
@@ -152,9 +73,6 @@ bool resolve_symbol(const char* name, Fn& out) {
     return true;
 }
 
-// ---------------------------------------------------------------- Z item ----
-
-// Read-only: safe to call from the RML display-sync path.
 u8 current_z_item() {
     if (isWolfPlayer()) {
         return dItemNo_NONE_e;
@@ -171,14 +89,12 @@ u8 current_z_item() {
     return zItem;
 }
 
-// dusklight's icon_provider serves "item://item/<hex>"; the query string is only
-// a cache key (it is stripped before the lookup).
+// dusklight's icon_provider serves "item://item/<hex>"
 std::string z_item_icon_source() {
     const u8 itemNo = current_z_item();
     if (itemNo == dItemNo_NONE_e) {
         return {};
     }
-    // No dedicated light-arrow HUD icon; the bow icon is what the game uses.
     const u8 textureItem = (itemNo == dItemNo_LIGHT_ARROW_e) ? dItemNo_BOW_e : itemNo;
     char buf[48] = {};
     std::snprintf(buf, sizeof(buf), "item://item/%02x?ztwe=%02x", textureItem, itemNo);
@@ -203,16 +119,12 @@ void after_midna_icon_revision(ModContext*, void*, void* retval, void*) {
     if (itemNo == dItemNo_NONE_e) {
         return;
     }
-    // Fold in the ammo count so the icon is re-fetched when it changes.
     int count = 0;
     int maxCount = 0;
     z_item_ammo(itemNo, count, maxCount);
-    // 'Z' tag in the high byte so it can never collide with a real revision.
     *static_cast<uint64_t*>(retval) = 0x5A000000ull | (static_cast<uint64_t>(itemNo) << 12) |
                                       static_cast<uint64_t>(count & 0xFFF);
 }
-
-// ------------------------------------------------- count / oil DOM injection --
 
 void set_property(void* element, const char* name, const char* value) {
     if (element == nullptr || s_rmlSetProperty == nullptr) {
@@ -245,7 +157,6 @@ void sync_z_button_meter(void* button) {
         return;
     }
 
-    // Children of `<button id="button-z">`: 0 = <img class="midna-icon">, 1 = <span>Z</span>.
     void* container = s_rmlGetChild(button, 1);
     if (container == nullptr) {
         return;
@@ -257,7 +168,6 @@ void sync_z_button_meter(void* button) {
         configure_meter_container(container);
     }
 
-    // The "Z" label keeps the position .button-z.has-icon span would have given it.
     std::string rml =
         "<span style=\"position:absolute;right:9dp;bottom:7dp;font-size:13dp;line-height:1;\">Z"
         "</span>";
@@ -299,8 +209,6 @@ void after_touch_sync_displays(ModContext*, void*, void*, void*) {
     sync_z_button_meter(button);
 }
 
-// sync_control_displays() sets "has-icon" on the Z button and nothing else,
-// which is how we identify that element without reaching into TouchControls.
 HookAction before_rml_set_class(ModContext*, void* args, void*, void*) {
     if (!s_inDisplaySync || args == nullptr) {
         return HOOK_CONTINUE;
@@ -313,9 +221,6 @@ HookAction before_rml_set_class(ModContext*, void* args, void*, void*) {
     return HOOK_CONTINUE;
 }
 
-// --------------------------------------------- midona_n capture fallback ----
-
-// Restore the Midna prompt's own children once we stop hosting.
 void release_hosted_midona() {
     if (!s_hostActive) {
         return;
@@ -330,7 +235,7 @@ void release_hosted_midona() {
     s_hostActive = false;
 }
 
-}  // namespace
+}
 
 bool z_mobile_active() {
     return true;
@@ -359,8 +264,6 @@ J2DPane* z_mobile_sync_touch_z(dMeter2Draw_c* draw) {
         return nullptr;
     }
 
-    // Park `midona_n` on the Z button so the item sits where the capture expects
-    // it (this is the layout that empirically produced an icon).
     J2DPane* zbtn = screen->search(MULTI_CHAR('zbtn_n'));
     if (zbtn != nullptr && midona->getParentPane() != zbtn) {
         J2DPane* oldParent = midona->getParentPane();
@@ -371,13 +274,6 @@ J2DPane* z_mobile_sync_touch_z(dMeter2Draw_c* draw) {
         midona->translate(0.0f, 0.0f);
     }
 
-    // setButtonIconMidonaAlpha() computes
-    //   alpha = mMidnaIconAlpha*mParentAlpha*mMainHUDButtonsAlpha
-    //           * 255 * mButtonZAlpha * mpButtonParent->getAlphaRate()
-    // and CPaneMgr::setAlpha cascades that into our item pane. Any factor at 0
-    // gives a fully transparent (i.e. invisible) icon, so pin the ones we own.
-    // No on-screen effect: with touch controls dMeter2Draw_c::draw() hides the
-    // whole J2D button parent every frame.
     g_meter2_info.onUseButton(0x800);
     draw->mButtonZAlpha = 1.0f;
     if (draw->mpButtonParent != nullptr) {
@@ -387,7 +283,6 @@ J2DPane* z_mobile_sync_touch_z(dMeter2Draw_c* draw) {
     midona->show();
     midona->setAlpha(255);
 
-    // Only the Z item may contribute to the captured icon: hide Midna's own art.
     J2DPane* itemPane = nullptr;
     if (CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2)) {
         itemPane = itemR->getPanePtr();
@@ -413,18 +308,11 @@ void z_mobile_init(const HookService* hook_svc) {
         return;
     }
 
-    // Z item icon on the touch button (+ dusklight then syncs the equip target,
-    // which is what the item-wheel animation follows).
     const bool iconOk =
         mods::hook::add_post<ZMidnaIconSourceHook>(hook_svc, after_midna_icon_source) == MOD_OK &&
         mods::hook::add_post<ZMidnaIconRevisionHook>(hook_svc, after_midna_icon_revision) == MOD_OK;
 
-    // Without the icon hooks (game build ships no embedded symbol manifest) fall
-    // back to feeding the item through the `midona_n` render-to-texture instead.
     s_useCaptureFallback = !iconOk;
-    log_z_info("[ZButton/mobile] touch Z icon: %s", iconOk ? "direct (item:// icon source)"
-                                                           : "midona_n capture fallback "
-                                                             "(no symbol manifest in this build)");
 
     // Ammo count / lantern oil bar on the touch button.
     const bool meterOk =
@@ -436,7 +324,6 @@ void z_mobile_init(const HookService* hook_svc) {
         mods::hook::add_post<ZTouchSyncDisplaysHook>(hook_svc, after_touch_sync_displays) ==
             MOD_OK &&
         mods::hook::add_pre<ZRmlSetClassHook>(hook_svc, before_rml_set_class) == MOD_OK;
-    log_z_info("[ZButton/mobile] touch Z count/oil hooks: %s", meterOk ? "ok" : "FAILED");
 
     resolve_symbol(Z_SYM_GET_EQUIP_TARGET, s_getEquipTarget);
 }
@@ -465,18 +352,6 @@ void z_mobile_report_after_midna_alpha(dMeter2Draw_c* draw) {
         itemW = b.getWidth();
         itemH = b.getHeight();
     }
-
-    log_z_info(
-        "[ZButton/mobile] capture: host=%d item=0x%02X | midona vis=%d a=%d | item vis=%d a=%d "
-        "parented=%d %.0fx%.0f | zAlpha=%.2f parentRate=%.2f hio=%.2f/%.2f/%.2f",
-        s_hostActive ? 1 : 0, current_z_item(),
-        midona ? midona->isVisible() : -1, midona ? midona->getAlpha() : -1,
-        itemPane ? itemPane->isVisible() : -1, itemPane ? itemPane->getAlpha() : -1,
-        (itemPane != nullptr && midona != nullptr && itemPane->getParentPane() == midona) ? 1 : 0,
-        itemW, itemH,
-        draw->mButtonZAlpha,
-        draw->mpButtonParent ? draw->mpButtonParent->getAlphaRate() : -1.0f,
-        g_drawHIO.mMidnaIconAlpha, g_drawHIO.mParentAlpha, g_drawHIO.mMainHUDButtonsAlpha);
 }
 
 bool z_mobile_touch_z_rect(f32& x, f32& y, f32& w, f32& h) {
@@ -496,15 +371,6 @@ bool z_mobile_touch_z_rect(f32& x, f32& y, f32& w, f32& h) {
     h = target.height;
     return true;
 }
-
-// ===========================================================================
-//  Iron / heavy boots on the Z slot  (ported from dawnlight item_slot_hooks.cpp)
-// ---------------------------------------------------------------------------
-//  With touch controls a Z press doesn't register as "held" the way a pad press
-//  does, so the engine calls setHeavyBoots(0) right after the boots go on and
-//  they pop straight back off. This lock lets a deliberate toggle through but
-//  blocks the involuntary un-equip.
-// ===========================================================================
 
 namespace {
 
@@ -557,7 +423,7 @@ void hb_clear_lock() {
     s_hbGuardFrames = 0;
 }
 
-}  // namespace
+}
 
 bool z_mobile_hb_locked(daAlink_c* link) {
     return link != nullptr && s_hbGuardLink == link && s_hbWaitRelease;
@@ -608,22 +474,18 @@ HookAction z_mobile_guard_heavy_boots(void* args, void* retval) {
         return HOOK_CONTINUE;
     }
 
-    // Deliberate re-equip right after a manual toggle-off: allow it.
     if (enable != 0 && s_hbGuardLink == link && s_hbManualToggleOff) {
         hb_clear_lock();
         return HOOK_CONTINUE;
     }
-    // Same press still being processed: don't let it toggle again.
     if (enable != 0 && z_mobile_hb_locked(link)) {
         if (retval) *static_cast<int*>(retval) = 0;
         return HOOK_SKIP_ORIGINAL;
     }
-    // Contexts where the boots genuinely must come off (riding, wolf, ...).
     if (enable == 0 && hb_forced_off_context(link)) {
         hb_clear_lock();
         return HOOK_CONTINUE;
     }
-    // Otherwise: block the involuntary un-equip.
     if (retval) *static_cast<int*>(retval) = 0;
     return HOOK_SKIP_ORIGINAL;
 }
@@ -638,7 +500,7 @@ void z_mobile_shutdown() {
     s_syncZButton = nullptr;
 }
 
-#else  // ------------------------------------------------------------------- desktop
+#else
 
 bool z_mobile_active() {
     return false;

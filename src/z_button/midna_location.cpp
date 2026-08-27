@@ -14,7 +14,7 @@ void update_midna_pane(dMeter2Draw_c* draw) {
     if (midnaPane == nullptr) return;
 
     // While the mobile fallback borrows `midona_n` to mirror the Z item onto the
-    // touch button, leave that pane alone (z_mobile.cpp owns its children).
+    // touch button, leave that pane alone
     if (z_mobile_wants_midona_host()) {
         if (g_configCustomZButtonEnabled) {
             J2DPane* z_btnl_hosted = screen->search(MULTI_CHAR('z_btnl'));
