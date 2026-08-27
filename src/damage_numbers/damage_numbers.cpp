@@ -12,6 +12,7 @@
 #include "mods/svc/hook.h"
 #include "mods/svc/log.h"
 
+#include "d/d_meter2.h"
 #include "d/d_meter2_draw.h"
 #include "d/d_com_inf_game.h"
 #include "d/d_s_play.h"
@@ -43,7 +44,7 @@ struct DamagePopup {
 static std::unordered_map<fpc_ProcID, s16> s_lastHealthMap;
 static std::vector<DamagePopup> s_damagePopups;
 
-DEFINE_HOOK(&dMeter2Draw_c::draw, Meter2DrawDmg);
+DEFINE_HOOK(&dMeter2_c::_draw, Meter2DrawDmg);
 
 // Text rendering with GX 2D restore
 static void draw_damage_text(const char* text, f32 x, f32 y, f32 charW, f32 charH, JUtility::TColor color) {

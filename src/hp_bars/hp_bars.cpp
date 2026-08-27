@@ -10,6 +10,7 @@
 #include "mods/svc/hook.h"
 #include "mods/svc/log.h"
 
+#include "d/d_meter2.h"
 #include "d/d_meter2_draw.h"
 #include "d/d_com_inf_game.h"
 #include "d/d_s_play.h"
@@ -31,7 +32,7 @@
 bool g_configHpBarsEnabled = false;
 bool g_configHpBarsShowNumbers = false;
 
-DEFINE_HOOK(&dMeter2Draw_c::draw, Meter2Draw);
+DEFINE_HOOK(&dMeter2_c::_draw, Meter2DrawHook);
 
 static std::unordered_map<fpc_ProcID, s16> g_maxHealthMap;
 static std::unordered_map<fpc_ProcID, f32> g_enemyAlphaMap;
@@ -314,11 +315,12 @@ static void on_meter2_draw_post(ModContext*, void*, void*, void*) {
     fopAcIt_Executor(reinterpret_cast<fopAcIt_ExecutorFunc>(drawEnemyHpBarCallback), &ctx);
 }
 
-ModResult init_hp_bars(const HookService* hook_svc, ModError* error) {
+ModResult init_hp_bars(const HookService* hook_svc, ModError*) {
     if (!hook_svc) {
         return MOD_OK;
     }
-    return mods::hook::add_post<Meter2Draw>(hook_svc, on_meter2_draw_post);
+    mods::hook::add_post<Meter2DrawHook>(hook_svc, on_meter2_draw_post);
+    return MOD_OK;
 }
 
 void shutdown_hp_bars() {

@@ -154,8 +154,6 @@ static void update_custom_z_button_prompt(dMeterButton_c* meterButton) {
     }
 }
 
-DEFINE_HOOK(&dMeterButton_c::draw, MeterButtonDrawHook);
-
 HookAction on_meter_button_execute_pre(ModContext*, void* args, void*, void*) {
     if (isTitleOrMainMenu() || !args) return HOOK_CONTINUE;
     dMeterButton_c* meterButton = mods::arg<dMeterButton_c*>(args, 0);
@@ -167,11 +165,4 @@ void on_meter_button_execute_post(ModContext*, void* args, void*, void*) {
     if (isTitleOrMainMenu() || !args) return;
     dMeterButton_c* meterButton = mods::arg<dMeterButton_c*>(args, 0);
     update_custom_z_button_prompt(meterButton);
-}
-
-HookAction on_meter_button_draw_pre(ModContext*, void* args, void*, void*) {
-    if (isTitleOrMainMenu() || !args) return HOOK_CONTINUE;
-    dMeterButton_c* meterButton = mods::arg<dMeterButton_c*>(args, 0);
-    update_custom_z_button_prompt(meterButton);
-    return HOOK_CONTINUE;
 }

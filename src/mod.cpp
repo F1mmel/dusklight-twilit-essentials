@@ -791,12 +791,7 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
         mods::hook::add_pre<TitleFastLogoDispExecuteHook>(svc_hook, on_title_fast_logo_disp_pre);
     }
 
-    ModResult res = init_hp_bars(svc_hook, error);
-    if (res != MOD_OK) {
-        if (svc_log) svc_log->error(mod_ctx, "Failed to initialize HP bars");
-        return res;
-    }
-
+    init_hp_bars(svc_hook, error);
     init_damage_numbers(svc_hook, error);
     init_visible_equipment(svc_hook, error);
     init_z_button(svc_hook, svc_log, mod_ctx, error);

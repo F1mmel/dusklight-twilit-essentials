@@ -58,7 +58,6 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     // HUD and Item Wheel UI hooks (run on all builds, including native Z-button engines)
     mods::hook::add_pre<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_pre);
     mods::hook::add_post<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_post);
-    mods::hook::add_pre<MeterButtonDrawHook>(hook_svc, on_meter_button_draw_pre);
     mods::hook::add_post<RingCreateHook>(hook_svc, after_ring_create);
     mods::hook::add_pre<RingDeleteHook>(hook_svc, before_ring_delete);
     mods::hook::add_post<RingDrawHook>(hook_svc, after_ring_draw);
