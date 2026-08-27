@@ -6,6 +6,7 @@
 #include "mods/svc/hook.hpp"
 
 extern bool g_configCollectionStarterEquip;
+extern bool g_configCollectionKeepOrdonShield;
 extern bool g_configCollectionUnequip;
 
 void request_collection_menu_reload();

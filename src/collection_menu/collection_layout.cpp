@@ -23,9 +23,11 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
         J2DPane* fuku_n0 = screen->search(MULTI_CHAR('fuku_n0'));
 
         J2DPane* ken_g0 = screen->search(MULTI_CHAR('ken_g_0'));
+        J2DPane* ken_00 = screen->search(MULTI_CHAR('ken_00'));
         J2DPane* ken_01 = screen->search(MULTI_CHAR('ken_01'));
         J2DPane* tate_g0 = screen->search(MULTI_CHAR('tate_g_0'));
         J2DPane* tate_00 = screen->search(MULTI_CHAR('tate_00'));
+        J2DPane* tate_01 = screen->search(MULTI_CHAR('tate_01'));
         J2DPane* fuku_g0 = screen->search(MULTI_CHAR('fuku_g_0'));
         J2DPane* fuku_00 = screen->search(MULTI_CHAR('fuku_00'));
 
@@ -66,13 +68,14 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             s_paneKenMid->setBasePosition((J2DBasePosition)ken_n0->mBasePosition);
             s_paneKenMid->mBounds.set(-22.5f, -22.5f, 22.5f, 22.5f);
 
-            const ResTIMG* iconTex = safe_get_tex_info(ken_01);
-            if (iconTex) {
-                s_picKenMidIcon = JKR_NEW J2DPicture(MULTI_CHAR('ken_im'), ken_01 ? ken_01->mBounds : ken_n0->mBounds, iconTex, nullptr);
+            const ResTIMG* ordonSwordTex = safe_get_tex_info(ken_01);
+            if (ordonSwordTex != nullptr) {
+                s_picKenMidIcon = JKR_NEW J2DPicture(MULTI_CHAR('ken_im'), ken_01 ? ken_01->mBounds : ken_n0->mBounds, ordonSwordTex, nullptr);
                 s_picKenMidIcon->mKind = 'PIC1';
                 if (ken_01) s_picKenMidIcon->setBasePosition((J2DBasePosition)ken_01->mBasePosition);
                 s_picKenMidIcon->mBounds.set(-22.5f, -22.5f, 22.5f, 22.5f);
                 s_picKenMidIcon->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
+                s_picKenMidIcon->setAlpha(255);
                 s_paneKenMid->appendChild(s_picKenMidIcon);
                 s_picKenMidIcon->translate(0.0f, 0.0f);
             }
@@ -98,19 +101,20 @@ void update_screen_bases(J2DScreen* screen, JKRExpHeap* heap) {
             }
         }
 
-        // 2. Ordon Shield Icon (Slot 2, Row 1)
+        // 2. Wooden Shield Icon (Slot 2, Row 1)
         if (!s_paneTateMid && tate_n0 && tate_n0->getParentPane()) {
             s_paneTateMid = JKR_NEW J2DPane(tate_n0->getParentPane(), true, MULTI_CHAR('tate_mid'), tate_n0->mBounds);
             s_paneTateMid->setBasePosition((J2DBasePosition)tate_n0->mBasePosition);
             s_paneTateMid->mBounds.set(-22.5f, -22.5f, 22.5f, 22.5f);
 
-            const ResTIMG* iconTex = safe_get_tex_info(tate_00);
-            if (iconTex) {
-                s_picTateMidIcon = JKR_NEW J2DPicture(MULTI_CHAR('tate_im'), tate_00 ? tate_00->mBounds : tate_n0->mBounds, iconTex, nullptr);
+            const ResTIMG* woodShieldTex = safe_get_tex_info(tate_00);
+            if (woodShieldTex != nullptr) {
+                s_picTateMidIcon = JKR_NEW J2DPicture(MULTI_CHAR('tate_im'), tate_00 ? tate_00->mBounds : tate_n0->mBounds, woodShieldTex, nullptr);
                 s_picTateMidIcon->mKind = 'PIC1';
                 if (tate_00) s_picTateMidIcon->setBasePosition((J2DBasePosition)tate_00->mBasePosition);
                 s_picTateMidIcon->mBounds.set(-22.5f, -22.5f, 22.5f, 22.5f);
                 s_picTateMidIcon->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
+                s_picTateMidIcon->setAlpha(255);
                 s_paneTateMid->appendChild(s_picTateMidIcon);
                 s_picTateMidIcon->translate(0.0f, 0.0f);
             }
@@ -292,6 +296,17 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
         }
     }
 
+    if (s_paneFukuStart) s_paneFukuStart->mBounds.set(-22.5f, -22.5f, 22.5f, 22.5f);
+    if (s_picFukuStartFrame) s_picFukuStartFrame->mBounds.set(-23.5f, -23.5f, 23.5f, 23.5f);
+    if (s_picFukuStartIcon) {
+        s_picFukuStartIcon->mBounds.set(-22.5f, -22.5f, 22.5f, 22.5f);
+        s_picFukuStartIcon->translate(0.0f, 0.0f);
+        ResTIMG* ordonClothesTex = get_ordon_clothes_texture();
+        if (ordonClothesTex) {
+            s_picFukuStartIcon->changeTexture(ordonClothesTex, 0);
+        }
+    }
+
     // Connectors (tunagi)
     J2DPane* tunagi00 = screen->search(MULTI_CHAR('tunagi00'));
     J2DPane* tunagi01 = screen->search(MULTI_CHAR('tunagi01'));
@@ -340,34 +355,18 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     }
 
     // Check item possession/unlocked status
-    // Link always has Wooden Sword & Ordon Clothes from game start
-    bool hasWoodSword = true;
-
-    bool hasOrdonSword = dComIfGs_isItemFirstBit(dItemNo_SWORD_e);
-    if (dComIfGs_getSelectEquipSword() == dItemNo_SWORD_e) hasOrdonSword = true;
-
-    bool hasMasterSword = dComIfGs_isItemFirstBit(dItemNo_MASTER_SWORD_e) || dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e);
-    if (dComIfGs_getSelectEquipSword() == dItemNo_MASTER_SWORD_e || dComIfGs_getSelectEquipSword() == dItemNo_LIGHT_SWORD_e) hasMasterSword = true;
-
+    bool hasWoodSword = is_collect_item_unlocked(3, 0);
+    bool hasOrdonSword = is_collect_item_unlocked(4, 0);
+    bool hasMasterSword = is_collect_item_unlocked(5, 0);
     bool hasHeart = (dComIfGs_getMaxLife() > 15);
 
-    bool hasWoodShield = dComIfGs_isItemFirstBit(dItemNo_WOOD_SHIELD_e);
-    if (dComIfGs_getSelectEquipShield() == dItemNo_WOOD_SHIELD_e) hasWoodShield = true;
+    bool hasOrdonShield = is_collect_item_unlocked(3, 1);
+    bool hasWoodShield = is_collect_item_unlocked(4, 1);
+    bool hasHylianShield = is_collect_item_unlocked(5, 1);
 
-    bool hasOrdonShield = dComIfGs_isItemFirstBit(dItemNo_SHIELD_e);
-    if (dComIfGs_getSelectEquipShield() == dItemNo_SHIELD_e) hasOrdonShield = true;
-
-    bool hasHylianShield = dComIfGs_isItemFirstBit(dItemNo_HYLIA_SHIELD_e);
-    if (dComIfGs_getSelectEquipShield() == dItemNo_HYLIA_SHIELD_e) hasHylianShield = true;
-
-    bool hasKokiriClothes = dComIfGs_isItemFirstBit(dItemNo_WEAR_KOKIRI_e);
-    if (dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_KOKIRI_e) hasKokiriClothes = true;
-
-    bool hasZoraArmor = dComIfGs_isItemFirstBit(dItemNo_WEAR_ZORA_e);
-    if (dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_ZORA_e) hasZoraArmor = true;
-
-    bool hasMagicArmor = dComIfGs_isItemFirstBit(dItemNo_ARMOR_e);
-    if (dComIfGs_getSelectEquipClothes() == dItemNo_ARMOR_e) hasMagicArmor = true;
+    bool hasKokiriClothes = is_collect_item_unlocked(4, 2);
+    bool hasZoraArmor = is_collect_item_unlocked(5, 2);
+    bool hasMagicArmor = is_collect_item_unlocked(6, 2);
 
     // Make all grid positions selectable by the cursor
     collect2D->field_0x22d[3][0] = 1;
@@ -422,12 +421,12 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     // 1. Swords
     J2DPane* ken_00 = screen->search(MULTI_CHAR('ken_00'));
     J2DPane* ken_01 = screen->search(MULTI_CHAR('ken_01'));
-    if (ken_n0) ken_n0->show();
-    if (ken_00) { ken_00->show(); ken_00->translate(0.0f, 0.0f); }
+    if (ken_n0) { if (hasWoodSword) ken_n0->show(); else ken_n0->hide(); }
+    if (ken_00) { if (hasWoodSword) { ken_00->show(); ken_00->translate(0.0f, 0.0f); } else ken_00->hide(); }
     if (ken_01) ken_01->hide();
 
     if (s_paneKenMid) { if (hasOrdonSword) s_paneKenMid->show(); else s_paneKenMid->hide(); }
-    if (s_picKenMidIcon) { if (hasOrdonSword) s_picKenMidIcon->show(); else s_picKenMidIcon->hide(); }
+    if (s_picKenMidIcon) { if (hasOrdonSword) { s_picKenMidIcon->show(); s_picKenMidIcon->translate(0.0f, 0.0f); } else s_picKenMidIcon->hide(); }
 
     if (ken_n1) { if (hasMasterSword) ken_n1->show(); else ken_n1->hide(); }
 
@@ -437,12 +436,12 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     // 2. Shields
     J2DPane* tate_00 = screen->search(MULTI_CHAR('tate_00'));
     J2DPane* tate_01 = screen->search(MULTI_CHAR('tate_01'));
-    if (tate_n0) { if (hasWoodShield) tate_n0->show(); else tate_n0->hide(); }
-    if (tate_01) { if (hasWoodShield) { tate_01->show(); tate_01->translate(0.0f, 0.0f); } else tate_01->hide(); }
+    if (tate_n0) { if (hasOrdonShield) tate_n0->show(); else tate_n0->hide(); }
+    if (tate_01) { if (hasOrdonShield) { tate_01->show(); tate_01->translate(0.0f, 0.0f); } else tate_01->hide(); }
     if (tate_00) tate_00->hide();
 
-    if (s_paneTateMid) { if (hasOrdonShield) s_paneTateMid->show(); else s_paneTateMid->hide(); }
-    if (s_picTateMidIcon) { if (hasOrdonShield) s_picTateMidIcon->show(); else s_picTateMidIcon->hide(); }
+    if (s_paneTateMid) { if (hasWoodShield) s_paneTateMid->show(); else s_paneTateMid->hide(); }
+    if (s_picTateMidIcon) { if (hasWoodShield) { s_picTateMidIcon->show(); s_picTateMidIcon->translate(0.0f, 0.0f); } else s_picTateMidIcon->hide(); }
 
     if (tate_n1) { if (hasHylianShield) tate_n1->show(); else tate_n1->hide(); }
 
@@ -462,36 +461,35 @@ void apply_collect_shifts(dMenu_Collect2D_c* collect2D) {
     J2DPane* p2 = screen->search(MULTI_CHAR('fuku_02'));
     if (p2) { if (hasMagicArmor) p2->show(); else p2->hide(); }
 
-    // Set correct textures on all icon panes
-    if (ken_00) {
-        const ResTIMG* tex = (const ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_item_icon_sword_a.bti");
-        if (tex) static_cast<J2DPicture*>(ken_00)->changeTexture(tex, 0);
-    }
-    if (s_picKenMidIcon) {
-        const ResTIMG* tex = (const ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_item_icon_sword_b.bti");
-        if (tex) s_picKenMidIcon->changeTexture(tex, 0);
-    }
-    if (ken_n1) {
-        J2DPane* p = screen->search(MULTI_CHAR('ken_02'));
-        if (p) {
-            const ResTIMG* tex = (const ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_item_icon_sword_c.bti");
-            if (tex) static_cast<J2DPicture*>(p)->changeTexture(tex, 0);
-        }
-    }
-    if (tate_01) {
-        const ResTIMG* tex = (const ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_item_icon_shield_a.bti");
-        if (tex) static_cast<J2DPicture*>(tate_01)->changeTexture(tex, 0);
-    }
-    if (s_picTateMidIcon) {
-        const ResTIMG* tex = (const ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_item_icon_shield_b.bti");
-        if (tex) s_picTateMidIcon->changeTexture(tex, 0);
-    }
-    if (tate_n1) {
-        J2DPane* p = screen->search(MULTI_CHAR('tate_02'));
-        if (p) {
-            const ResTIMG* tex = (const ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_item_icon_shield_c.bti");
-            if (tex) static_cast<J2DPicture*>(p)->changeTexture(tex, 0);
-        }
+    static bool s_hasLoggedCollectState = false;
+    if (!s_hasLoggedCollectState) {
+        s_hasLoggedCollectState = true;
+        log_collect_info("[CollectionMenu] State: keepOrdonShield=%d, hasOrdonShield=%d, hasWoodShield=%d, hasHylianShield=%d",
+                         g_configCollectionKeepOrdonShield, hasOrdonShield, hasWoodShield, hasHylianShield);
+        log_collect_info("[CollectionMenu] Shield Items: OrdonBit(0x2A)=%d, WoodBit(0x2B)=%d, HyliaBit(0x2C)=%d, curShield=0x%02X",
+                         dComIfGs_isItemFirstBit(dItemNo_WOOD_SHIELD_e),
+                         dComIfGs_isItemFirstBit(dItemNo_SHIELD_e),
+                         dComIfGs_isItemFirstBit(dItemNo_HYLIA_SHIELD_e),
+                         dComIfGs_getSelectEquipShield());
+        log_collect_info("[CollectionMenu] Shield Panes: tate_n0=%p(vis=%d, parent=%p), s_paneTateMid=%p(vis=%d, parent=%p), tate_00=%p(vis=%d, parent=%p), tate_01=%p(vis=%d, parent=%p)",
+                         tate_n0, tate_n0 ? tate_n0->isVisible() : -1, tate_n0 ? tate_n0->getParentPane() : nullptr,
+                         s_paneTateMid, s_paneTateMid ? s_paneTateMid->isVisible() : -1, s_paneTateMid ? s_paneTateMid->getParentPane() : nullptr,
+                         tate_00, tate_00 ? tate_00->isVisible() : -1, tate_00 ? tate_00->getParentPane() : nullptr,
+                         tate_01, tate_01 ? tate_01->isVisible() : -1, tate_01 ? tate_01->getParentPane() : nullptr);
+        J2DPicture* picT00 = static_cast<J2DPicture*>(tate_00);
+        JUTTexture* tex00 = picT00 ? picT00->getTexture(0) : nullptr;
+        const ResTIMG* timg00 = tex00 ? tex00->getTexInfo() : nullptr;
+        J2DPicture* picT01 = static_cast<J2DPicture*>(tate_01);
+        JUTTexture* tex01 = picT01 ? picT01->getTexture(0) : nullptr;
+        const ResTIMG* timg01 = tex01 ? tex01->getTexInfo() : nullptr;
+        J2DPane* tate_gm_pane = screen->search(MULTI_CHAR('tate_gm'));
+
+        log_collect_info("[CollectionMenu] tate_00 tex: pic=%p, tex=%p, timg=%p",
+                         picT00, tex00, timg00);
+        log_collect_info("[CollectionMenu] tate_01 tex: pic=%p, tex=%p, timg=%p",
+                         picT01, tex01, timg01);
+        log_collect_info("[CollectionMenu] tate_gm frame: ptr=%p(vis=%d)",
+                         tate_gm_pane, tate_gm_pane ? tate_gm_pane->isVisible() : -1);
     }
 
     update_frame_highlights(collect2D);
@@ -518,7 +516,7 @@ void update_frame_highlights(dMenu_Collect2D_c* collect2D) {
     if (picKenMidFrame) {
         bool eq = (currentSword == dItemNo_SWORD_e);
         picKenMidFrame->setBlackWhite(JUtility::TColor(0, 0, 0, 0),
-                              eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
+                                      eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
     // Slot 3 (Master Sword)
     J2DPicture* ken_g1 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('ken_g_1')));
@@ -529,14 +527,14 @@ void update_frame_highlights(dMenu_Collect2D_c* collect2D) {
     }
 
     // 2. Shields
-    // Slot 1 (Wooden Shield)
+    // Slot 1 (Ordon Shield)
     J2DPicture* tate_g0 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('tate_g_0')));
     if (tate_g0) {
         bool eq = (currentShield == dItemNo_WOOD_SHIELD_e);
         tate_g0->setBlackWhite(JUtility::TColor(0, 0, 0, 0),
                                eq ? JUtility::TColor(255, 255, 0, 255) : JUtility::TColor(107, 107, 107, 255));
     }
-    // Slot 2 (Ordon Shield)
+    // Slot 2 (Wooden Shield)
     J2DPicture* picTateMidFrame = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('tate_gm')));
     if (picTateMidFrame) {
         bool eq = (currentShield == dItemNo_SHIELD_e);
@@ -587,15 +585,35 @@ void update_frame_highlights(dMenu_Collect2D_c* collect2D) {
         io->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
         io->setAlpha(255);
     }
-    J2DPicture* kim = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('ken_im')));
-    if (kim) {
-        kim->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
-        kim->setAlpha(255);
+    J2DPicture* t00 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('tate_00')));
+    if (t00) {
+        t00->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
+        t00->setAlpha(255);
+    }
+    J2DPicture* t01 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('tate_01')));
+    if (t01) {
+        t01->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
+        t01->setAlpha(255);
+    }
+    J2DPicture* k00 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('ken_00')));
+    if (k00) {
+        k00->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
+        k00->setAlpha(255);
+    }
+    J2DPicture* k01 = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('ken_01')));
+    if (k01) {
+        k01->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
+        k01->setAlpha(255);
     }
     J2DPicture* tim = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('tate_im')));
     if (tim) {
         tim->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
         tim->setAlpha(255);
+    }
+    J2DPicture* kim = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('ken_im')));
+    if (kim) {
+        kim->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(255, 255, 255, 255));
+        kim->setAlpha(255);
     }
 }
 
@@ -603,7 +621,7 @@ void on_menu_collect_2d_create_post(ModContext*, void* args, void*, void*) {
     if (!args) return;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     s_currentCollect2D = collect2D;
-    if (!g_configCollectionStarterEquip) return;
+    if (!is_collection_menu_enabled()) return;
     apply_collect_shifts(collect2D);
 }
 
@@ -627,7 +645,7 @@ HookAction on_menu_collect_2d_delete_pre(ModContext*, void*, void*, void*) {
 }
 
 HookAction on_screen_set_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (collect2D && collect2D->mpScreen) {
         update_screen_bases(collect2D->mpScreen, collect2D->mpHeap);
@@ -637,7 +655,7 @@ HookAction on_screen_set_pre(ModContext*, void* args, void*, void*) {
 }
 
 void on_screen_set_post(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return;
+    if (!is_collection_menu_enabled() || !args) return;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D) return;
 
@@ -652,10 +670,10 @@ void on_screen_set_post(ModContext*, void* args, void*, void*) {
     collect2D->field_0x1d8[6][0] = 0x286;
 
     // Shields name/description string IDs
-    collect2D->field_0x184[3][1] = 0x18f; // Wooden Shield
-    collect2D->field_0x1d8[3][1] = 0x28f;
-    collect2D->field_0x184[4][1] = 0x190; // Ordon Shield
-    collect2D->field_0x1d8[4][1] = 0x290;
+    collect2D->field_0x184[3][1] = 0x190; // Ordon Shield
+    collect2D->field_0x1d8[3][1] = 0x290;
+    collect2D->field_0x184[4][1] = 0x18f; // Wooden Shield
+    collect2D->field_0x1d8[4][1] = 0x28f;
     collect2D->field_0x184[5][1] = 0x191; // Hylian Shield
     collect2D->field_0x1d8[5][1] = 0x291;
 
@@ -711,14 +729,14 @@ void on_screen_set_post(ModContext*, void* args, void*, void*) {
 }
 
 void on_menu_collect_wide_post(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return;
+    if (!is_collection_menu_enabled() || !args) return;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     apply_collect_shifts(collect2D);
     update_frame_highlights(collect2D);
 }
 
 void on_menu_collect_2d_move_post(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return;
+    if (!is_collection_menu_enabled() || !args) return;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D) return;
     apply_collect_shifts(collect2D);

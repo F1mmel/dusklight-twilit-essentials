@@ -1,6 +1,17 @@
 #include "collection_common.hpp"
 
 ModContext* g_modCtx = nullptr;
+const LogService* g_logSvc = nullptr;
+
+void log_collect_info(const char* fmt, ...) {
+    if (!g_logSvc || !g_modCtx) return;
+    char buffer[512];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+    g_logSvc->info(g_modCtx, buffer);
+}
 
 J2DScreen* s_cachedScreen = nullptr;
 J2DScreen* s_capturedScreen = nullptr;

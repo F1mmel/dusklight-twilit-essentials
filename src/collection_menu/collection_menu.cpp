@@ -7,16 +7,22 @@
 #include "collection_equip.cpp"
 
 bool g_configCollectionStarterEquip = false;
+bool g_configCollectionKeepOrdonShield = false;
 bool g_configCollectionUnequip = false;
 
-ModResult init_collection_menu(const HookService* hook_svc, const LogService*, ModContext* mod_ctx, ModError* error) {
+ModResult init_collection_menu(const HookService* hook_svc, const LogService* log_svc, ModContext* mod_ctx, ModError* error) {
     g_modCtx = mod_ctx;
+    g_logSvc = log_svc;
+
+    log_collect_info("[CollectionMenu] init_collection_menu: keepOrdonShield=%d, starterEquip=%d, unequip=%d",
+                     g_configCollectionKeepOrdonShield, g_configCollectionStarterEquip, g_configCollectionUnequip);
 
     if (hook_svc) {
         // Area transition & spawn preservation
         mods::hook::add_pre<DaAlinkCreateHook>(hook_svc, on_da_alink_create_pre);
         mods::hook::add_post<DaAlinkCreateHook>(hook_svc, on_da_alink_create_post);
         mods::hook::add_pre<SetSelectEquipClothesHook>(hook_svc, on_set_select_equip_clothes_pre);
+        mods::hook::add_pre<Meter2InfoSetShieldHook>(hook_svc, on_meter2_info_set_shield_pre);
 
         // Screen layout & lifecycle
         mods::hook::add_post<MenuCollect2DCreateHook>(hook_svc, on_menu_collect_2d_create_post);
@@ -50,10 +56,13 @@ ModResult init_collection_menu(const HookService* hook_svc, const LogService*, M
 }
 
 void request_collection_menu_reload() {
+    log_collect_info("[CollectionMenu] request_collection_menu_reload requested");
     s_needReloadCollect = true;
 }
 
-void update_collection_menu(const LogService*, ModContext*) {
+void update_collection_menu(const LogService* log_svc, ModContext* mod_ctx) {
+    g_logSvc = log_svc;
+    g_modCtx = mod_ctx;
 }
 
 void shutdown_collection_menu() {

@@ -1,7 +1,7 @@
 #include "collection_nav.hpp"
 
 HookAction on_get_item_tag_pre(ModContext*, void* args, void* ret, void*) {
-    if (!g_configCollectionStarterEquip || !args || !ret) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args || !ret) return HOOK_CONTINUE;
     int i_tag1 = mods::arg<int>(args, 1);
     int i_tag2 = mods::arg<int>(args, 2);
     bool param_3 = mods::arg<bool>(args, 3);
@@ -54,7 +54,7 @@ J2DPane* get_target_pane(dMenu_Collect2D_c* collect2D, u8 x, u8 y) {
 }
 
 HookAction on_cursor_pos_set_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D || !collect2D->mpScreen || !collect2D->mpDrawCursor) return HOOK_CONTINUE;
 
@@ -117,7 +117,7 @@ HookAction on_cursor_pos_set_pre(ModContext*, void* args, void*, void*) {
 }
 
 HookAction on_cursor_move_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D || !collect2D->mpScreen || !collect2D->mpStick) return HOOK_CONTINUE;
 
@@ -224,7 +224,7 @@ HookAction on_cursor_move_pre(ModContext*, void* args, void*, void*) {
 }
 
 HookAction on_set_item_name_string_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     u8 x = mods::arg<u8>(args, 1);
     u8 y = mods::arg<u8>(args, 2);
@@ -285,7 +285,7 @@ HookAction on_set_item_name_string_pre(ModContext*, void* args, void*, void*) {
 }
 
 HookAction on_get_string_kanji_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     u32 msgID = mods::arg<u32>(args, 1);
     if (msgID == 0x193) {
         TEXT_SPAN o_str = mods::arg<TEXT_SPAN>(args, 2);
@@ -305,7 +305,7 @@ HookAction on_get_string_kanji_pre(ModContext*, void* args, void*, void*) {
 }
 
 HookAction on_get_string_local_pre(ModContext*, void* args, void* ret, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     u32 msgID = mods::arg<u32>(args, 1);
     if (msgID == 0x293) {
         dMsgStringBase_c* msgStr = mods::arg<dMsgStringBase_c*>(args, 0);

@@ -212,10 +212,18 @@ static ConfigVarHandle s_varPuppetZeldaAlwaysShortest = 0;
 static ConfigVarHandle s_varCheckForUpdates = 0;
 static ConfigVarHandle s_varCollectionStarterEquip = 0;
 static ConfigVarHandle s_varCollectionUnequip = 0;
+static ConfigVarHandle s_varCollectionKeepOrdonShield = 0;
 
 static void on_collection_starter_equip_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
     if (value) {
         g_configCollectionStarterEquip = value->bool_value;
+        request_collection_menu_reload();
+    }
+}
+
+static void on_collection_keep_ordon_shield_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
+    if (value) {
+        g_configCollectionKeepOrdonShield = value->bool_value;
         request_collection_menu_reload();
     }
 }
@@ -225,6 +233,8 @@ static void on_collection_unequip_changed(ModContext*, ConfigVarHandle, const Co
         g_configCollectionUnequip = value->bool_value;
     }
 }
+
+
 
 static void on_sheathed_spin_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
     if (value) {
@@ -586,6 +596,14 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
         ctrlStarter.config_var = s_varCollectionStarterEquip;
         svc_ui->pane_add_control(mod_ctx, panel, &ctrlStarter, nullptr);
     }
+    if (s_varCollectionKeepOrdonShield != 0) {
+        UiControlDesc ctrlShield = UI_CONTROL_DESC_INIT;
+        ctrlShield.kind = UI_CONTROL_TOGGLE;
+        ctrlShield.label = "Keep Ordon Shield in collection";
+        ctrlShield.binding = UI_BINDING_CONFIG_VAR;
+        ctrlShield.config_var = s_varCollectionKeepOrdonShield;
+        svc_ui->pane_add_control(mod_ctx, panel, &ctrlShield, nullptr);
+    }
     if (s_varCollectionUnequip != 0) {
         UiControlDesc ctrlUnequip = UI_CONTROL_DESC_INIT;
         ctrlUnequip.kind = UI_CONTROL_TOGGLE;
@@ -594,6 +612,9 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
         ctrlUnequip.config_var = s_varCollectionUnequip;
         svc_ui->pane_add_control(mod_ctx, panel, &ctrlUnequip, nullptr);
     }
+
+
+
 
     return MOD_OK;
 }
@@ -778,7 +799,19 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
             svc_config->get_bool(mod_ctx, s_varCollectionUnequip, &g_configCollectionUnequip);
             svc_config->subscribe(mod_ctx, s_varCollectionUnequip, on_collection_unequip_changed, nullptr, nullptr);
         }
+
+        ConfigVarDesc descKeepShield = CONFIG_VAR_DESC_INIT;
+        descKeepShield.name = "collectionKeepOrdonShield";
+        descKeepShield.type = CONFIG_VAR_BOOL;
+        descKeepShield.default_bool = false;
+        if (svc_config->register_var(mod_ctx, &descKeepShield, &s_varCollectionKeepOrdonShield) == MOD_OK) {
+            svc_config->get_bool(mod_ctx, s_varCollectionKeepOrdonShield, &g_configCollectionKeepOrdonShield);
+            svc_config->subscribe(mod_ctx, s_varCollectionKeepOrdonShield, on_collection_keep_ordon_shield_changed, nullptr, nullptr);
+        }
     }
+
+
+
 
     if (svc_ui) {
         UiModsPanelDesc panelDesc = UI_MODS_PANEL_DESC_INIT;

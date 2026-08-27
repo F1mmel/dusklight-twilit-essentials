@@ -31,10 +31,13 @@ extern const ResourceService* get_resource_service();
 
 // Globals & Module Context
 extern ModContext* g_modCtx;
+extern const LogService* g_logSvc;
 extern J2DScreen* s_cachedScreen;
 extern J2DScreen* s_capturedScreen;
 extern dMenu_Collect2D_c* s_currentCollect2D;
 extern bool s_needReloadCollect;
+
+void log_collect_info(const char* fmt, ...);
 
 // Custom Panes
 // Swords: Slot 1 is ken_n0, Slot 2 is s_paneKenMid, Slot 3 is ken_n1
@@ -108,22 +111,67 @@ void set_pane_pos(J2DPane* pane, f32 x, f32 y);
 Vec get_pane_center(J2DPane* pane);
 void safe_delete_custom_pane(J2DPane*& pane);
 
+inline bool is_collection_menu_enabled() {
+    return g_configCollectionStarterEquip || g_configCollectionKeepOrdonShield || g_configCollectionUnequip;
+}
+
 inline bool is_collect_item_unlocked(u8 x, u8 y) {
     if (y == 0) {
-        if (x == 3) return true; // Wooden Sword
-        if (x == 4) return dComIfGs_isItemFirstBit(dItemNo_SWORD_e) || dComIfGs_getSelectEquipSword() == dItemNo_SWORD_e; // Ordon Sword
-        if (x == 5) return dComIfGs_isItemFirstBit(dItemNo_MASTER_SWORD_e) || dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e) ||
-                           dComIfGs_getSelectEquipSword() == dItemNo_MASTER_SWORD_e || dComIfGs_getSelectEquipSword() == dItemNo_LIGHT_SWORD_e; // Master Sword
+        if (x == 3) {
+            return dComIfGs_isItemFirstBit(dItemNo_WOOD_STICK_e) ||
+                   (dComIfGs_getSelectEquipSword() == dItemNo_WOOD_STICK_e) ||
+                   dComIfGs_isItemFirstBit(dItemNo_SWORD_e) ||
+                   (dComIfGs_getSelectEquipSword() == dItemNo_SWORD_e) ||
+                   dComIfGs_isItemFirstBit(dItemNo_MASTER_SWORD_e) ||
+                   (dComIfGs_getSelectEquipSword() == dItemNo_MASTER_SWORD_e) ||
+                   dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e) ||
+                   (dComIfGs_getSelectEquipSword() == dItemNo_LIGHT_SWORD_e) ||
+                   dComIfGs_isItemFirstBit(dItemNo_WEAR_KOKIRI_e) ||
+                   (dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_KOKIRI_e);
+        }
+        if (x == 4) {
+            return dComIfGs_isItemFirstBit(dItemNo_SWORD_e) ||
+                   (dComIfGs_getSelectEquipSword() == dItemNo_SWORD_e) ||
+                   dComIfGs_isItemFirstBit(dItemNo_MASTER_SWORD_e) ||
+                   (dComIfGs_getSelectEquipSword() == dItemNo_MASTER_SWORD_e) ||
+                   dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e) ||
+                   (dComIfGs_getSelectEquipSword() == dItemNo_LIGHT_SWORD_e);
+        }
+        if (x == 5) {
+            return dComIfGs_isItemFirstBit(dItemNo_MASTER_SWORD_e) ||
+                   dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e) ||
+                   (dComIfGs_getSelectEquipSword() == dItemNo_MASTER_SWORD_e) ||
+                   (dComIfGs_getSelectEquipSword() == dItemNo_LIGHT_SWORD_e);
+        }
         if (x == 6) return true; // Heart Container
     } else if (y == 1) {
-        if (x == 3) return dComIfGs_isItemFirstBit(dItemNo_WOOD_SHIELD_e) || dComIfGs_getSelectEquipShield() == dItemNo_WOOD_SHIELD_e; // Wooden Shield
-        if (x == 4) return dComIfGs_isItemFirstBit(dItemNo_SHIELD_e) || dComIfGs_getSelectEquipShield() == dItemNo_SHIELD_e; // Ordon Shield
-        if (x == 5) return dComIfGs_isItemFirstBit(dItemNo_HYLIA_SHIELD_e) || dComIfGs_getSelectEquipShield() == dItemNo_HYLIA_SHIELD_e; // Hylian Shield
+        if (x == 3) {
+            if (g_configCollectionKeepOrdonShield) {
+                return true;
+            }
+            return dComIfGs_isItemFirstBit(dItemNo_WOOD_SHIELD_e) ||
+                   (dComIfGs_getSelectEquipShield() == dItemNo_WOOD_SHIELD_e);
+        }
+        if (x == 4) {
+            return dComIfGs_isItemFirstBit(dItemNo_SHIELD_e) ||
+                   (dComIfGs_getSelectEquipShield() == dItemNo_SHIELD_e);
+        }
+        if (x == 5) {
+            return dComIfGs_isItemFirstBit(dItemNo_HYLIA_SHIELD_e) ||
+                   (dComIfGs_getSelectEquipShield() == dItemNo_HYLIA_SHIELD_e);
+        }
     } else if (y == 2) {
         if (x == 3) return true; // Ordon Clothes
-        if (x == 4) return dComIfGs_isItemFirstBit(dItemNo_WEAR_KOKIRI_e) || dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_KOKIRI_e; // Kokiri Clothes
-        if (x == 5) return dComIfGs_isItemFirstBit(dItemNo_WEAR_ZORA_e) || dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_ZORA_e; // Zora Armor
-        if (x == 6) return dComIfGs_isItemFirstBit(dItemNo_ARMOR_e) || dComIfGs_getSelectEquipClothes() == dItemNo_ARMOR_e; // Magic Armor
+        if (x == 4) {
+            return dComIfGs_isItemFirstBit(dItemNo_WEAR_KOKIRI_e) ||
+                   (dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_KOKIRI_e) ||
+                   dComIfGs_isItemFirstBit(dItemNo_WEAR_ZORA_e) ||
+                   (dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_ZORA_e) ||
+                   dComIfGs_isItemFirstBit(dItemNo_ARMOR_e) ||
+                   (dComIfGs_getSelectEquipClothes() == dItemNo_ARMOR_e);
+        }
+        if (x == 5) return dComIfGs_isItemFirstBit(dItemNo_WEAR_ZORA_e) || (dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_ZORA_e);
+        if (x == 6) return dComIfGs_isItemFirstBit(dItemNo_ARMOR_e) || (dComIfGs_getSelectEquipClothes() == dItemNo_ARMOR_e);
     }
     return false;
 }

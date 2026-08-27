@@ -35,3 +35,7 @@ void on_da_alink_create_post(ModContext*, void*, void*, void*);
 
 DEFINE_HOOK(&dComIfGs_setSelectEquipClothes, SetSelectEquipClothesHook);
 HookAction on_set_select_equip_clothes_pre(ModContext*, void* args, void*, void*);
+
+// Shield preservation hook for keep Ordon Shield
+DEFINE_HOOK(&dMeter2Info_setShield, Meter2InfoSetShieldHook);
+HookAction on_meter2_info_set_shield_pre(ModContext*, void* args, void*, void*);

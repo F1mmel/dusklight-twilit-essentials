@@ -4,7 +4,7 @@
 static bool s_inAlinkCreate = false;
 
 HookAction on_wait_proc_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D || !collect2D->mpScreen) return HOOK_CONTINUE;
 
@@ -37,7 +37,7 @@ HookAction on_wait_proc_pre(ModContext*, void* args, void*, void*) {
 
 
 void on_wait_proc_post(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return;
+    if (!is_collection_menu_enabled() || !args) return;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D) return;
 
@@ -60,7 +60,7 @@ void on_wait_proc_post(ModContext*, void* args, void*, void*) {
 }
 
 HookAction on_pointer_activate_current_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D) return HOOK_CONTINUE;
 
@@ -87,7 +87,7 @@ HookAction on_pointer_activate_current_pre(ModContext*, void* args, void*, void*
 }
 
 HookAction on_change_sword_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D) return HOOK_CONTINUE;
 
@@ -95,23 +95,24 @@ HookAction on_change_sword_pre(ModContext*, void* args, void*, void*) {
     u8 curY = collect2D->mCursorY;
 
     if (curX == 3) {
-        // Wooden sword is always unlocked
-        if (dComIfGs_getSelectEquipSword() == dItemNo_WOOD_STICK_e) {
-            if (g_configCollectionUnequip) {
-                dMeter2Info_setSword(dItemNo_NONE_e, false);
-                Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_OFF, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+        if (is_collect_item_unlocked(3, 0)) {
+            if (dComIfGs_getSelectEquipSword() == dItemNo_WOOD_STICK_e) {
+                if (g_configCollectionUnequip) {
+                    dMeter2Info_setSword(dItemNo_NONE_e, false);
+                    Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_OFF, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+                    dMeter2Info_set2DVibration();
+                    update_frame_highlights(collect2D);
+                }
+            } else {
+                dMeter2Info_setSword(dItemNo_WOOD_STICK_e, false);
+                dComIfGs_onItemFirstBit(dItemNo_WOOD_STICK_e);
+                Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_X, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
                 dMeter2Info_set2DVibration();
                 update_frame_highlights(collect2D);
             }
-        } else {
-            dMeter2Info_setSword(dItemNo_WOOD_STICK_e, false);
-            dComIfGs_onItemFirstBit(dItemNo_WOOD_STICK_e);
-            Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_X, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-            dMeter2Info_set2DVibration();
-            update_frame_highlights(collect2D);
         }
     } else if (curX == 4) {
-        if (dComIfGs_isItemFirstBit(dItemNo_SWORD_e)) {
+        if (is_collect_item_unlocked(4, 0)) {
             if (dComIfGs_getSelectEquipSword() == dItemNo_SWORD_e) {
                 if (g_configCollectionUnequip) {
                     dMeter2Info_setSword(dItemNo_NONE_e, false);
@@ -127,7 +128,7 @@ HookAction on_change_sword_pre(ModContext*, void* args, void*, void*) {
             }
         }
     } else if (curX == 5) {
-        if (dComIfGs_isItemFirstBit(dItemNo_MASTER_SWORD_e) || dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e)) {
+        if (is_collect_item_unlocked(5, 0)) {
             u8 targetSword = dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e) ? dItemNo_LIGHT_SWORD_e : dItemNo_MASTER_SWORD_e;
             if (dComIfGs_getSelectEquipSword() == targetSword || dComIfGs_getSelectEquipSword() == dItemNo_MASTER_SWORD_e || dComIfGs_getSelectEquipSword() == dItemNo_LIGHT_SWORD_e) {
                 if (g_configCollectionUnequip) {
@@ -149,7 +150,7 @@ HookAction on_change_sword_pre(ModContext*, void* args, void*, void*) {
 }
 
 HookAction on_change_shield_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D) return HOOK_CONTINUE;
 
@@ -157,7 +158,7 @@ HookAction on_change_shield_pre(ModContext*, void* args, void*, void*) {
     u8 curY = collect2D->mCursorY;
 
     if (curX == 3) {
-        if (dComIfGs_isItemFirstBit(dItemNo_WOOD_SHIELD_e)) {
+        if (is_collect_item_unlocked(3, 1)) {
             if (dComIfGs_getSelectEquipShield() == dItemNo_WOOD_SHIELD_e) {
                 if (g_configCollectionUnequip) {
                     dMeter2Info_setShield(dItemNo_NONE_e, false);
@@ -168,6 +169,7 @@ HookAction on_change_shield_pre(ModContext*, void* args, void*, void*) {
                 }
             } else {
                 dMeter2Info_setShield(dItemNo_WOOD_SHIELD_e, false);
+                dComIfGs_onItemFirstBit(dItemNo_WOOD_SHIELD_e);
                 daAlink_getAlinkActorClass()->setShieldChange();
                 Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_X, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
                 dMeter2Info_set2DVibration();
@@ -175,7 +177,7 @@ HookAction on_change_shield_pre(ModContext*, void* args, void*, void*) {
             }
         }
     } else if (curX == 4) {
-        if (dComIfGs_isItemFirstBit(dItemNo_SHIELD_e)) {
+        if (is_collect_item_unlocked(4, 1)) {
             if (dComIfGs_getSelectEquipShield() == dItemNo_SHIELD_e) {
                 if (g_configCollectionUnequip) {
                     dMeter2Info_setShield(dItemNo_NONE_e, false);
@@ -193,7 +195,7 @@ HookAction on_change_shield_pre(ModContext*, void* args, void*, void*) {
             }
         }
     } else if (curX == 5) {
-        if (dComIfGs_isItemFirstBit(dItemNo_HYLIA_SHIELD_e)) {
+        if (is_collect_item_unlocked(5, 1)) {
             if (dComIfGs_getSelectEquipShield() == dItemNo_HYLIA_SHIELD_e) {
                 if (g_configCollectionUnequip) {
                     dMeter2Info_setShield(dItemNo_NONE_e, false);
@@ -215,8 +217,19 @@ HookAction on_change_shield_pre(ModContext*, void* args, void*, void*) {
     return HOOK_SKIP_ORIGINAL;
 }
 
+HookAction on_meter2_info_set_shield_pre(ModContext*, void* args, void*, void*) {
+    if (!g_configCollectionKeepOrdonShield || !args) return HOOK_CONTINUE;
+    u8 itemId = mods::arg<u8>(args, 0);
+    bool offItemBit = mods::arg<bool>(args, 1);
+    if (offItemBit && dComIfGs_getSelectEquipShield() == dItemNo_WOOD_SHIELD_e) {
+        dMeter2Info_setShield(itemId, false);
+        return HOOK_SKIP_ORIGINAL;
+    }
+    return HOOK_CONTINUE;
+}
+
 HookAction on_change_clothes_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     if (!collect2D) return HOOK_CONTINUE;
 
@@ -224,7 +237,6 @@ HookAction on_change_clothes_pre(ModContext*, void* args, void*, void*) {
     u8 curY = collect2D->mCursorY;
 
     if (curX == 3) {
-        // Ordon Clothes always unlocked
         if (dComIfGs_getSelectEquipClothes() != dItemNo_WEAR_CASUAL_e) {
             dMeter2Info_setCloth(dItemNo_WEAR_CASUAL_e, false);
             daPy_getPlayerActorClass()->setClothesChange(0);
@@ -233,7 +245,7 @@ HookAction on_change_clothes_pre(ModContext*, void* args, void*, void*) {
             update_frame_highlights(collect2D);
         }
     } else if (curX == 4) {
-        if (dComIfGs_isItemFirstBit(dItemNo_WEAR_KOKIRI_e)) {
+        if (is_collect_item_unlocked(4, 2)) {
             if (dComIfGs_getSelectEquipClothes() != dItemNo_WEAR_KOKIRI_e) {
                 dMeter2Info_setCloth(dItemNo_WEAR_KOKIRI_e, false);
                 daPy_getPlayerActorClass()->setClothesChange(0);
@@ -243,7 +255,7 @@ HookAction on_change_clothes_pre(ModContext*, void* args, void*, void*) {
             }
         }
     } else if (curX == 5) {
-        if (dComIfGs_isItemFirstBit(dItemNo_WEAR_ZORA_e)) {
+        if (is_collect_item_unlocked(5, 2)) {
             if (dComIfGs_getSelectEquipClothes() != dItemNo_WEAR_ZORA_e) {
                 dMeter2Info_setCloth(dItemNo_WEAR_ZORA_e, false);
                 daPy_getPlayerActorClass()->setClothesChange(0);
@@ -253,7 +265,7 @@ HookAction on_change_clothes_pre(ModContext*, void* args, void*, void*) {
             }
         }
     } else if (curX == 6) {
-        if (dComIfGs_isItemFirstBit(dItemNo_ARMOR_e)) {
+        if (is_collect_item_unlocked(6, 2)) {
             if (dComIfGs_getSelectEquipClothes() != dItemNo_ARMOR_e) {
                 dMeter2Info_setCloth(dItemNo_ARMOR_e, false);
                 daPy_getPlayerActorClass()->setClothesChange(0);
@@ -268,21 +280,21 @@ HookAction on_change_clothes_pre(ModContext*, void* args, void*, void*) {
 }
 
 HookAction on_set_equip_frame_sword_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     update_frame_highlights(collect2D);
     return HOOK_SKIP_ORIGINAL;
 }
 
 HookAction on_set_equip_frame_shield_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     update_frame_highlights(collect2D);
     return HOOK_SKIP_ORIGINAL;
 }
 
 HookAction on_set_equip_frame_clothes_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     dMenu_Collect2D_c* collect2D = mods::arg<dMenu_Collect2D_c*>(args, 0);
     update_frame_highlights(collect2D);
     return HOOK_SKIP_ORIGINAL;
@@ -298,7 +310,7 @@ void on_da_alink_create_post(ModContext*, void*, void*, void*) {
 }
 
 HookAction on_set_select_equip_clothes_pre(ModContext*, void* args, void*, void*) {
-    if (!g_configCollectionStarterEquip || !args) return HOOK_CONTINUE;
+    if (!is_collection_menu_enabled() || !args) return HOOK_CONTINUE;
     u8 newCloth = mods::arg<u8>(args, 0);
     if (s_inAlinkCreate && newCloth == dItemNo_WEAR_KOKIRI_e && dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_CASUAL_e) {
         return HOOK_SKIP_ORIGINAL;
