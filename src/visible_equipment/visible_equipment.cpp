@@ -7,11 +7,13 @@
 #include "d/d_item_data.h"
 #include "d/d_kankyo.h"
 #include "f_pc/f_pc_name.h"
+#include "f_pc/f_pc_profile_lst.h"
 #include "m_Do/m_Do_ext.h"
 #include "m_Do/m_Do_mtx.h"
 #include "mods/api.h"
 #include "mods/svc/hook.hpp"
 #include "mods/svc/log.h"
+#include "../z_button/z_button.hpp"
 #include <cstdio>
 
 static const LogService *s_logSvc = nullptr;
@@ -38,6 +40,18 @@ inline s16 degToS16(f32 deg) {
 }
 
 extern bool isNativeZButtonEngine();
+
+// this is a helper function for finding the correct address of a member if it doesn't line up with the SDK
+template <typename T>
+const T &addressShift(const T &member) { // template because it accepts a param regardless of type
+  const u32 actualSize = g_profile_ALINK.base.base.process_size; // size of daAlink_c on runtime
+  const size_t linkSize = sizeof(daAlink_c); // expected size based on dusklight's SDK
+  // shift by the difference between the actual size and the expected size
+  const int shiftByThis = static_cast<int>(actualSize) - static_cast<int>(linkSize);
+
+  // get a new pointer to the member by shifting the address of the member by the difference
+  return *reinterpret_cast<const T *>(reinterpret_cast<const u8 *>(&member) + shiftByThis);
+}
 
 static u32 getLinkShadowId(daAlink_c *alink) {
   if (alink == nullptr) {
@@ -86,8 +100,7 @@ static bool isWolfOrTransforming(daAlink_c *alink) {
 
 static MtxP getBoneMtx(daAlink_c *alink, const char *boneName) {
   if (alink == nullptr || alink->mpLinkModel == nullptr ||
-      boneName == nullptr || isWolfOrTransforming(alink) ||
-      alink->getClothesChangeWaitTimer() != 0) {
+      boneName == nullptr || isWolfOrTransforming(alink)) {
     return nullptr;
   }
 
@@ -216,25 +229,18 @@ static J3DModel *loadBmdModel(J3DModel *&modelPtr, const char *arcName,
     return nullptr;
   }
 
-  daAlink_c *alink = static_cast<daAlink_c *>(dComIfGp_getPlayer(0));
-  bool isLinkArc = (alink != nullptr && alink->mArcName != nullptr && std::strcmp(arcName, alink->mArcName) == 0);
+  dComIfG_setObjectRes(arcName, 0, nullptr);
 
-  if (!isLinkArc) {
-    dComIfG_setObjectRes(arcName, 0, nullptr);
-    if (dComIfG_syncObjectRes(arcName) != 0) {
-      return nullptr;
-    }
-  }
-
-  void *resPtr = isObjectID ? dComIfG_getObjectIDRes(arcName, bmdIndex)
-                            : dComIfG_getObjectRes(arcName, bmdIndex);
-  if (resPtr != nullptr) {
-    J3DModelData *modelData = static_cast<J3DModelData *>(resPtr);
-    if (modelData != nullptr && modelData->getShapeTable() != nullptr &&
-        modelData->getMaterialNum() > 0 && modelData->getMaterialNodePointer(0) != nullptr) {
-      modelPtr = mDoExt_J3DModel__create(modelData, 0x80000, 0x11000084);
-      if (modelPtr != nullptr) {
-        modelPtr->setBaseScale(scale);
+  if (dComIfG_syncObjectRes(arcName) == 0) {
+    void *resPtr = isObjectID ? dComIfG_getObjectIDRes(arcName, bmdIndex)
+                              : dComIfG_getObjectRes(arcName, bmdIndex);
+    if (resPtr != nullptr) {
+      J3DModelData *modelData = static_cast<J3DModelData *>(resPtr);
+      if (modelData != nullptr && modelData->getShapeTable() != nullptr) {
+        modelPtr = mDoExt_J3DModel__create(modelData, 0x80000, 0x11000084);
+        if (modelPtr != nullptr) {
+          modelPtr->setBaseScale(scale);
+        }
       }
     }
   }
@@ -285,11 +291,7 @@ static void loadHorseCallModel(const LogService *, ModContext *) {
 }
 
 static void loadLanternModel(const LogService *, ModContext *) {
-  daAlink_c *alink = static_cast<daAlink_c *>(dComIfGp_getPlayer(0));
-  if (alink == nullptr || alink->mArcName == nullptr || alink->getClothesChangeWaitTimer() != 0) {
-    return;
-  }
-  loadBmdModel(s_customLanternModel, alink->mArcName, 0x0006, cXyz(1.0f, 1.0f, 1.0f));
+  loadBmdModel(s_customLanternModel, "Bmdl", 0x0006, cXyz(1.0f, 1.0f, 1.0f));
 }
 
 // Lantern physics
@@ -373,6 +375,18 @@ static void renderLantern(daAlink_c *alink) {
     return;
   }
 
+  /** the current implementation technically works anyways because it checks two flags before checking mEquipItem
+  but I figure it couldn't hurt to set a guard just in case **/
+  if (isNativeZButtonEngine()) {
+    const u16 shiftedItem = addressShift(alink->mEquipItem); // get the shifted address of lantern
+    if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
+        alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
+        shiftedItem == dItemNo_KANTERA_e) {
+      s_veLanternCallbackRegistered = false;
+      return;
+    }
+  }
+
   // Skip if active lantern is out
   if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
       alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
@@ -422,8 +436,7 @@ static void renderLantern(daAlink_c *alink) {
 
 static void renderBow(daAlink_c *alink, bool shouldShowEquipment,
                       bool isBowInHand) {
-  if (!shouldShowEquipment || isBowInHand || s_customBowModel == nullptr ||
-      alink == nullptr || alink->mSheathModel == nullptr) {
+  if (!shouldShowEquipment || isBowInHand || s_customBowModel == nullptr) {
     return;
   }
 
@@ -552,6 +565,11 @@ static void invalidateEquipmentModels() {
 static bool syncEquipmentModelCache(daAlink_c *alink) {
   if (alink == nullptr || alink->getClothesChangeWaitTimer() != 0) {
     invalidateEquipmentModels();
+    s_cachedLinkInstance = nullptr;
+    s_cachedLinkModel = nullptr;
+    s_cachedArcName = nullptr;
+    s_cachedStageName[0] = '\0';
+    s_cachedRoomNo = -1;
     return false;
   }
 
@@ -602,13 +620,24 @@ static void on_alink_draw_post(ModContext *, void *, void *, void *) {
   }
 
   if (!alink->mpLinkModel || alink->mpLinkModel->getModelData() == nullptr ||
-      isWolfOrTransforming(alink) || alink->getClothesChangeWaitTimer() != 0) {
+      isWolfOrTransforming(alink)) {
     return;
   }
 
   bool shouldShowBow = g_configVisibleEquipShowBow && checkShouldShowBow();
-  bool isBowInHand = alink->checkBowAndSlingItem(alink->mEquipItem) ||
+  bool isBowInHand = false;
+
+  if (isNativeZButtonEngine()) {
+    /** shift the address of the bow item by the address shift calculated by helper function addressShift();
+    this should fix the bow not correctly coming off of Link's back when the bow is drawn **/
+    const u16 shiftedItem = addressShift(alink->mEquipItem);
+    isBowInHand = alink->checkBowAndSlingItem(shiftedItem) ||
+                     shiftedItem == dItemNo_BOW_e;
+  }
+  else {
+    isBowInHand = alink->checkBowAndSlingItem(alink->mEquipItem) ||
                      (alink->mEquipItem == dItemNo_BOW_e);
+  }
 
   if (shouldShowBow) {
     renderBow(alink, shouldShowBow, isBowInHand);
@@ -646,7 +675,7 @@ void update_visible_equipment(const LogService *log_svc, ModContext *mod_ctx) {
     return;
   }
 
-  if (!alink->mpLinkModel || isWolfOrTransforming(alink) || alink->getClothesChangeWaitTimer() != 0) {
+  if (!alink->mpLinkModel || isWolfOrTransforming(alink)) {
     return;
   }
 
