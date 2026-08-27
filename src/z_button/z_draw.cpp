@@ -2,6 +2,7 @@
 
 #include "z_draw.hpp"
 #include "midna_location.hpp"
+#include "z_mobile.hpp"
 
 DEFINE_HOOK(&dMeter2Draw_c::draw, Meter2DrawDrawHook);
 DEFINE_HOOK(&dMeter2Draw_c::drawButtonZ, DrawButtonZHook);
@@ -49,14 +50,22 @@ void update_z_item_texture(dMeter2Draw_c* draw) {
         return;
     }
 
+    // On builds without a symbol manifest the Z item pane lives inside `midona_n`
+    // instead, so dusklight's render-to-texture of that pane puts the item on the
+    // touch Z button; everywhere else it stays a child of `zbtn_n`.
+    J2DPane* zItemHost = zbtn;
+    if (J2DPane* mobileHost = z_mobile_sync_touch_z(draw)) {
+        zItemHost = mobileHost;
+    }
+
     if (itemR && itemR->getPanePtr()) {
         J2DPane* itemPane = itemR->getPanePtr();
-        if (itemPane && itemPane->getParentPane() != zbtn) {
+        if (itemPane && itemPane->getParentPane() != zItemHost) {
             J2DPane* oldParent = itemPane->getParentPane();
             if (oldParent != nullptr) {
                 oldParent->mPaneTree.removeChild(&itemPane->mPaneTree);
             }
-            zbtn->appendChild(itemPane);
+            zItemHost->appendChild(itemPane);
             set_pane_influenced_alpha_recursive(itemPane, true);
         }
     }
@@ -183,13 +192,16 @@ void update_z_item_texture(dMeter2Draw_c* draw) {
 
     safe_pane_trans(itemR, offsetX, offsetY);
 
+    // Grey out with X/Y while items are unusable (the engine has no dim branch
+    // for the Z slot, so the mod applies the same rule itself).
+    const u8 zIconAlpha = z_item_icon_alpha();
     pane->show();
-    pane->setAlpha(255);
-    mainPic->setAlpha(255);
+    pane->setAlpha(zIconAlpha);
+    mainPic->setAlpha(zIconAlpha);
     if (shinePic) {
         if (g_zHasSecondLayer) {
             shinePic->show();
-            shinePic->setAlpha(255);
+            shinePic->setAlpha(zIconAlpha);
         } else {
             shinePic->hide();
         }
@@ -205,7 +217,7 @@ void update_z_item_texture(dMeter2Draw_c* draw) {
         if (itemRChild != nullptr) {
             if (g_zHasSecondLayer) {
                 itemRChild->show();
-                itemRChild->setAlpha(255);
+                itemRChild->setAlpha(zIconAlpha);
             } else {
                 itemRChild->hide();
             }
@@ -333,6 +345,15 @@ void on_meter2_draw_draw_post(ModContext*, void* args, void*, void*) {
         iconH = bounds.getHeight();
     }
 
+    // On mobile the digits must follow the real touch Z button, not the HUD pane.
+    f32 touchX, touchY, touchW, touchH;
+    if (z_mobile_touch_z_rect(touchX, touchY, touchW, touchH)) {
+        baseX = touchX;
+        baseY = touchY;
+        iconW = touchW;
+        iconH = touchH;
+    }
+
     draw_z_ammo_digits(draw, baseX, baseY, iconW, iconH, alphaRate);
 }
 
@@ -374,41 +395,7 @@ void draw_z_ammo_digits(dMeter2Draw_c* draw, f32 baseX, f32 baseY, f32 iconW, f3
     int count    = -1;
     int maxCount = -1;
 
-    // Bomb Arrow
-    if (zItem == dItemNo_BOMB_ARROW_e || zItem == 0x59) {
-        u8 bombSlot = dComIfGs_getSelectMixItemNoArrowIndex(2);
-        u8 bagIdx = (bombSlot >= 15 && bombSlot < 18) ? (bombSlot - 15) : 0;
-        u8 bombType = dComIfGs_getItem((u8)(bagIdx + 15), false);
-        count = dComIfGs_getBombNum(bagIdx);
-        maxCount = dComIfGs_getBombMax(bombType);
-    }
-    // Bow
-    else if (zItem == dItemNo_BOW_e || zItem == dItemNo_HAWK_ARROW_e || zItem == 0x43 || zItem == 0x53 || zItem == 0x54 || zItem == 0x55 || zItem == 0x56 || zItem == 0x5A) {
-        count    = dComIfGs_getArrowNum();
-        maxCount = dComIfGs_getArrowMax();
-    }
-    // Slingshot
-    else if (zItem == 0x4B || zItem == 0x76) {
-        count    = dComIfGs_getPachinkoNum();
-        maxCount = dComIfGs_getPachinkoMax();
-    }
-    // Bombs
-    else if (is_bomb_item(zItem)) {
-        u8 bombSlot = dComIfGs_getSelectMixItemNoArrowIndex(2);
-        u8 bagIdx = (bombSlot >= 15 && bombSlot < 18) ? (bombSlot - 15) : 0;
-        u8 bombType = dComIfGs_getItem((u8)(bagIdx + 15), false);
-        count    = dComIfGs_getBombNum(bagIdx);
-        maxCount = dComIfGs_getBombMax(bombType);
-    }
-    // Bee larva bottle
-    else if (zItem == dItemNo_BEE_CHILD_e || zItem == dItemNo_BEE_ROD_e) {
-        u8 bottleSlot = dComIfGs_getSelectItemIndex(2);
-        u8 bottleIdx = (bottleSlot >= 11 && bottleSlot < 15) ? (bottleSlot - 11) : 0;
-        count = dComIfGs_getBottleNum(bottleIdx);
-        maxCount = 10;
-    }
-    // Lantern
-    else if (zItem == 0x48) {
+    if (z_item_is_lantern(zItem)) {
         if (g_zKanteraIcon == nullptr) {
             g_zKanteraIcon = JKR_NEW dKantera_icon_c();
         }
@@ -421,6 +408,8 @@ void draw_z_ammo_digits(dMeter2Draw_c* draw, f32 baseX, f32 baseY, f32 iconW, f3
             g_zKanteraIcon->setAlphaRate(alphaRate);
             g_zKanteraIcon->drawSelf();
         }
+    } else {
+        z_item_ammo(zItem, count, maxCount);
     }
 
     if (count >= 0) {
@@ -521,15 +510,20 @@ HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, void*, v
                 return HOOK_CONTINUE;
             }
 
+            // Grey out with X/Y while items are unusable; the engine only dims
+            // i_no 0/1 in setButtonIconAlpha, never the Z slot.
+            const u8 zBaseAlpha = z_button_base_alpha();
+            const u8 zIconAlpha = z_item_icon_alpha();
+
             J2DPane* zbtn = screen->search(MULTI_CHAR('zbtn_n'));
             if (zbtn != nullptr) {
                 zbtn->show();
-                zbtn->setAlpha(255);
+                zbtn->setAlpha(zBaseAlpha);
             }
             J2DPane* rbtn = screen->search(MULTI_CHAR('rbtn_n'));
             if (rbtn != nullptr) {
                 rbtn->show();
-                rbtn->setAlpha(255);
+                rbtn->setAlpha(zBaseAlpha);
             }
 
             u8 zItem = dComIfGp_getSelectItem(2);
@@ -550,12 +544,12 @@ HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, void*, v
             } else if (zItem != 0xFF && zItem != 0x00 && zItem != dItemNo_NONE_e) {
                 if (itemRPane != nullptr) {
                     itemRPane->show();
-                    itemRPane->setAlpha(255);
+                    itemRPane->setAlpha(zIconAlpha);
                 }
                 if (itemRChild != nullptr) {
                     if (g_zHasSecondLayer) {
                         itemRChild->show();
-                        itemRChild->setAlpha(255);
+                        itemRChild->setAlpha(zIconAlpha);
                     } else {
                         itemRChild->hide();
                     }
@@ -564,7 +558,20 @@ HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, void*, v
         }
     }
 
+    // Last thing before the original renders `midona_n` into the touch Z button's
+    // texture, so the item pane it captures is in place and fully opaque.
+    if (z_mobile_sync_touch_z(draw) != nullptr) {
+        update_z_item_texture(draw);
+    }
+
     return HOOK_CONTINUE;
+}
+
+void on_set_button_icon_midona_alpha_post(ModContext*, void* args, void*, void*) {
+    if (!g_configCustomZButtonEnabled || !args || isTitleOrMainMenu()) {
+        return;
+    }
+    z_mobile_report_after_midna_alpha(mods::arg<dMeter2Draw_c*>(args, 0));
 }
 
 HookAction on_set_button_icon_alpha_pre(ModContext*, void* args, void*, void*) {
@@ -573,6 +580,16 @@ HookAction on_set_button_icon_alpha_pre(ModContext*, void* args, void*, void*) {
     }
 
     int i_no = mods::arg<int>(args, 1);
+
+    // Latch the X/Y "items usable" state while the engine is evaluating it; this
+    // is the only point in the frame where these flags are meaningful. The Z item
+    // greys out with them (see z_items_dimmed).
+    if (i_no == 0) {
+        g_zDimX = !dMeter2Info_isUseButton(METER2_USEBUTTON_X);
+    } else if (i_no == 1) {
+        g_zDimY = !dMeter2Info_isUseButton(METER2_USEBUTTON_Y);
+    }
+
     if (i_no != 2) {
         return HOOK_CONTINUE;
     }

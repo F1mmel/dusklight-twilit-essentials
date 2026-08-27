@@ -1,6 +1,7 @@
 #pragma once
 
 #include "midna_location.hpp"
+#include "z_mobile.hpp"
 
 DEFINE_HOOK(&dMeterButton_c::_execute, MeterButtonExecuteHook);
 
@@ -11,6 +12,19 @@ void update_midna_pane(dMeter2Draw_c* draw) {
 
     J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
     if (midnaPane == nullptr) return;
+
+    // While the mobile fallback borrows `midona_n` to mirror the Z item onto the
+    // touch button, leave that pane alone (z_mobile.cpp owns its children).
+    if (z_mobile_wants_midona_host()) {
+        if (g_configCustomZButtonEnabled) {
+            J2DPane* z_btnl_hosted = screen->search(MULTI_CHAR('z_btnl'));
+            if (z_btnl_hosted) {
+                z_btnl_hosted->hide();
+                z_btnl_hosted->setAlpha(0);
+            }
+        }
+        return;
+    }
 
     if (is_pause_menu_open(draw) || !isMidnaUnlocked()) {
         midnaPane->hide();

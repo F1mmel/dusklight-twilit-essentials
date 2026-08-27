@@ -1,6 +1,7 @@
 #pragma once
 
 #include "change_input.hpp"
+#include "z_mobile.hpp"
 
 DEFINE_HOOK(&mDoCPd_c::read, PadReadHook);
 DEFINE_HOOK(&daAlink_c::setStickData, SetStickDataHook);
@@ -64,6 +65,10 @@ void on_set_stick_data_post(ModContext*, void* args, void*, void*) {
     }
 
     daAlink_c* alink = mods::arg<daAlink_c*>(args, 0);
+
+    // mobile: release the iron-boots-on-Z debounce lock once Z is let go
+    z_mobile_hb_tick(alink);
+
     if (alink != nullptr && !alink->checkWolf()) {
         u8 windowStatus = dMeter2Info_getWindowStatus();
         if (windowStatus == 0) {

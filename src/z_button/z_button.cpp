@@ -2,6 +2,7 @@
 
 // Sub-module implementation includes
 #include "z_common.cpp"
+#include "z_mobile.cpp"
 #include "midna_location.cpp"
 #include "change_input.cpp"
 #include "z_itemwheel.cpp"
@@ -52,6 +53,9 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     mods::hook::add_pre<SetActiveCursorHook>(hook_svc, on_set_active_cursor_pre);
     mods::hook::add_post<SetActiveCursorHook>(hook_svc, on_set_active_cursor_post);
 
+    // Android / iOS touch Z-button icon + equip-target sync (no-op elsewhere)
+    z_mobile_init(hook_svc);
+
     if (isNativeZButtonEngine()) {
         if (log_svc) {
             log_svc->info(mod_ctx, "Native 3-item / Z-button engine detected (Lazy Tweaks). Skipping custom low-level inventory hooks.");
@@ -64,6 +68,7 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     mods::hook::add_post<Meter2ExecuteHook>(hook_svc, on_meter2_execute_post);
     mods::hook::add_post<Meter2DrawDrawHook>(hook_svc, on_meter2_draw_draw_post);
     mods::hook::add_pre<MidonaAlphaHook>(hook_svc, on_set_button_icon_midona_alpha_pre);
+    mods::hook::add_post<MidonaAlphaHook>(hook_svc, on_set_button_icon_midona_alpha_post);
     mods::hook::add_pre<ButtonIconAlphaHook>(hook_svc, on_set_button_icon_alpha_pre);
     mods::hook::add_pre<ChangeTextureItemXYHook>(hook_svc, on_change_texture_item_xy_pre);
     mods::hook::add_post<MoveButtonXYHook>(hook_svc, on_move_button_xy_post);
@@ -126,6 +131,8 @@ void shutdown_z_button() {
     for (int i = 0; i < 3; i++) {
         g_drawDigitPic[i] = nullptr;
     }
+
+    z_mobile_shutdown();
 
     g_cachedZMainPic = nullptr;
     g_lastLoadedZItem = 0xFF;

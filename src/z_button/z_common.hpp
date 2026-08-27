@@ -31,6 +31,16 @@
 #include <cstdio>
 #include <cstring>
 
+// Android / iOS build. Note TARGET_PC is defined on mobile too, so it can't be
+// used to tell the platforms apart.
+#if defined(__ANDROID__) || defined(TARGET_ANDROID) || \
+    (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE) || \
+    (defined(TARGET_OS_IOS) && TARGET_OS_IOS)
+#define Z_MOBILE_BUILD 1
+#else
+#define Z_MOBILE_BUILD 0
+#endif
+
 // Configuration flags
 extern bool g_configCustomZButtonEnabled;
 extern bool g_configZButtonEnabled;
@@ -77,6 +87,18 @@ void ensure_z_slot_initialized();
 void sync_z_item_state();
 u8 find_slot_for_item(u8 itemNo);
 bool is_bomb_item(u8 itemNo);
+// True while items can't be used (sword drawn, etc.) and the HUD buttons grey
+// out. The engine dims X/Y itself but has no such branch for Z. Latched from the
+// setButtonIconAlpha hook, since the flags only read correctly at that point.
+extern bool g_zDimX;
+extern bool g_zDimY;
+bool z_items_dimmed();
+u8 z_item_icon_alpha();
+u8 z_button_base_alpha();
+bool z_item_is_lantern(u8 itemNo);
+// Ammo/quantity shown next to an item on the HUD. Returns false for items that
+// don't carry a count (the lantern reports its oil through its own gauge).
+bool z_item_ammo(u8 itemNo, int& count, int& maxCount);
 bool isWolfPlayer();
 bool isTitleOrMainMenu();
 bool isMidnaUnlocked();
