@@ -417,38 +417,39 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
 
     // HP Bars & Damage Numbers
     svc_ui->pane_add_section(mod_ctx, panel, "Enemy HP Bars");
-#if defined(__ANDROID__) || defined(TARGET_ANDROID)
-    svc_ui->pane_add_text(mod_ctx, panel, "Shows health bars and damage numbers above enemies.\n(Note: Currently not supported on Android).", nullptr);
-#else
-    svc_ui->pane_add_text(mod_ctx, panel, "Shows health bars above enemies during combat.", nullptr);
-#endif
-    if (s_varHpBars != 0) {
-        UiControlDesc ctrlHp = UI_CONTROL_DESC_INIT;
-        ctrlHp.kind = UI_CONTROL_TOGGLE;
-        ctrlHp.label = "Enabled";
-        ctrlHp.binding = UI_BINDING_CONFIG_VAR;
-        ctrlHp.config_var = s_varHpBars;
-        svc_ui->pane_add_control(mod_ctx, panel, &ctrlHp, nullptr);
+    if (!isHpBarsSupported()) {
+        svc_ui->pane_add_rml(mod_ctx, panel, "<span style=\"color: #a8bcd4;\">Enemy HP Bars and Damage Numbers are currently not supported on Android.</span>", nullptr);
+    } else {
+        svc_ui->pane_add_text(mod_ctx, panel, "Shows health bars and damage numbers above enemies during combat.", nullptr);
+        if (s_varHpBars != 0) {
+            UiControlDesc ctrlHp = UI_CONTROL_DESC_INIT;
+            ctrlHp.kind = UI_CONTROL_TOGGLE;
+            ctrlHp.label = "Enabled";
+            ctrlHp.binding = UI_BINDING_CONFIG_VAR;
+            ctrlHp.config_var = s_varHpBars;
+            svc_ui->pane_add_control(mod_ctx, panel, &ctrlHp, nullptr);
+        }
+
+        if (s_varHpBarsShowNumbers != 0) {
+            UiControlDesc ctrlHpNum = UI_CONTROL_DESC_INIT;
+            ctrlHpNum.kind = UI_CONTROL_TOGGLE;
+            ctrlHpNum.label = "Show exact HP numbers";
+            ctrlHpNum.binding = UI_BINDING_CONFIG_VAR;
+            ctrlHpNum.config_var = s_varHpBarsShowNumbers;
+            ctrlHpNum.is_disabled = is_hp_bars_sub_disabled;
+            svc_ui->pane_add_control(mod_ctx, panel, &ctrlHpNum, nullptr);
+        }
+
+        if (s_varDamageNumbers != 0) {
+            UiControlDesc ctrlDmg = UI_CONTROL_DESC_INIT;
+            ctrlDmg.kind = UI_CONTROL_TOGGLE;
+            ctrlDmg.label = "Show damage numbers";
+            ctrlDmg.binding = UI_BINDING_CONFIG_VAR;
+            ctrlDmg.config_var = s_varDamageNumbers;
+            svc_ui->pane_add_control(mod_ctx, panel, &ctrlDmg, nullptr);
+        }
     }
 
-    if (s_varHpBarsShowNumbers != 0) {
-        UiControlDesc ctrlHpNum = UI_CONTROL_DESC_INIT;
-        ctrlHpNum.kind = UI_CONTROL_TOGGLE;
-        ctrlHpNum.label = "Show exact HP numbers";
-        ctrlHpNum.binding = UI_BINDING_CONFIG_VAR;
-        ctrlHpNum.config_var = s_varHpBarsShowNumbers;
-        ctrlHpNum.is_disabled = is_hp_bars_sub_disabled;
-        svc_ui->pane_add_control(mod_ctx, panel, &ctrlHpNum, nullptr);
-    }
-
-    if (s_varDamageNumbers != 0) {
-        UiControlDesc ctrlDmg = UI_CONTROL_DESC_INIT;
-        ctrlDmg.kind = UI_CONTROL_TOGGLE;
-        ctrlDmg.label = "Show damage numbers";
-        ctrlDmg.binding = UI_BINDING_CONFIG_VAR;
-        ctrlDmg.config_var = s_varDamageNumbers;
-        svc_ui->pane_add_control(mod_ctx, panel, &ctrlDmg, nullptr);
-    }
 
 
     // Visible Equipment
