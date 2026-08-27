@@ -133,13 +133,14 @@ bool is_bomb_item(u8 itemNo) {
 bool g_zDimX = false;
 bool g_zDimY = false;
 
-bool z_mobile_wants_midona_host();
-
 bool z_items_dimmed() {
     if (dMeter2Info_getWindowStatus() == 2) {
         return false;
     }
-    return g_zDimX && g_zDimY;
+    // Items are only dimmed when Link cannot use ANY items (dialog, swimming, carrying, etc.)
+    // If either X or Y is usable (e.g. aiming bow on one button while the other remains usable),
+    // then items are active and the Z item must NOT be dimmed!
+    return !dMeter2Info_isUseButton(METER2_USEBUTTON_X) && !dMeter2Info_isUseButton(METER2_USEBUTTON_Y);
 }
 
 u8 z_item_icon_alpha() {

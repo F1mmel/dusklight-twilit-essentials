@@ -11,6 +11,7 @@ DEFINE_HOOK(&dMeter2_c::checkStatus, CheckStatusHook);
 DEFINE_HOOK(&dMenu_Ring_c::setMixItem, SetMixItemHook);
 DEFINE_HOOK(&dMenu_Ring_c::setItem, SetItemHook);
 DEFINE_HOOK(&dMenu_Ring_c::setJumpItem, SetJumpItemHook);
+DEFINE_HOOK(&dMenu_Ring_c::setSelectItem, SetSelectItemHook);
 DEFINE_HOOK(&dMenu_Ring_c::setSelectItemForce, SetSelectItemForceHook);
 DEFINE_HOOK(&dMenu_Ring_c::isMixItemOn, IsMixItemOnHook);
 DEFINE_HOOK(&dMenu_Ring_c::isMixItemOff, IsMixItemOffHook);
@@ -802,6 +803,42 @@ void on_check_status_post(ModContext*, void* args, void*, void*) {
     update_z_item_texture();
 }
 
+HookAction on_set_select_item_pre(ModContext*, void* args, void*, void*) {
+    if (!args) return HOOK_CONTINUE;
+    dMenu_Ring_c* ring = mods::arg<dMenu_Ring_c*>(args, 0);
+    int i_idx = mods::arg<int>(args, 1);
+    u8 i_itemNo = mods::arg<u8>(args, 2);
+
+    if (ring == nullptr || i_idx < 0 || i_idx >= 4) return HOOK_CONTINUE;
+
+    f32 texScale = 1.0f;
+    if (i_itemNo != dItemNo_NONE_e) {
+        if (ring->field_0x6be[i_idx] == 0) {
+            ring->field_0x6be[i_idx] = 1;
+        } else {
+            ring->field_0x6be[i_idx] = 0;
+        }
+        u8 bufIdx = ring->field_0x6be[i_idx];
+        if (bufIdx > 2) bufIdx = 0;
+
+        // Fix dusklight out-of-bounds bug: pass nullptr for 3rd layer buffer (dim is only 2)
+        ring->field_0x686[i_idx] = dMeter2Info_readItemTexture(
+            i_itemNo,
+            ring->mpSelectItemTexBuf[i_idx][bufIdx][0], ring->mpSelectItemTex[i_idx][0],
+            ring->mpSelectItemTexBuf[i_idx][bufIdx][1], ring->mpSelectItemTex[i_idx][1],
+            nullptr, ring->mpSelectItemTex[i_idx][2],
+            nullptr, nullptr,
+            -1
+        );
+        texScale = dItem_data::getTexScale(i_itemNo) / 100.0f;
+    }
+    if (ring->mpSelectItemTexBuf[i_idx][ring->field_0x6be[i_idx]][0] != nullptr) {
+        ring->field_0x548[i_idx] = ring->mpSelectItemTexBuf[i_idx][ring->field_0x6be[i_idx]][0]->width / 48.0f * texScale;
+        ring->field_0x558[i_idx] = ring->mpSelectItemTexBuf[i_idx][ring->field_0x6be[i_idx]][0]->height / 48.0f * texScale;
+    }
+    return HOOK_SKIP_ORIGINAL;
+}
+
 struct RingZButtonPrompt {
     dMenu_Ring_c* ring = nullptr;
     J2DScreen* screen = nullptr;
@@ -809,6 +846,8 @@ struct RingZButtonPrompt {
 };
 
 static RingZButtonPrompt s_ringZPrompt;
+static bool s_guidePosAdjusted = false;
+static constexpr f32 kItemWheelPromptXOffset = -15.0f;
 
 static void hide_pane_tree(J2DPane* pane) {
     if (pane == nullptr) return;
@@ -833,19 +872,15 @@ static void show_pane_parents(J2DPane* pane) {
 }
 
 static void clear_ring_z_prompt_refs() {
-    if (s_ringZPrompt.screen != nullptr) {
-        JKR_DELETE(s_ringZPrompt.screen);
-    }
-    if (s_ringZPrompt.button != nullptr) {
-        JKR_DELETE(s_ringZPrompt.button);
-    }
     s_ringZPrompt.button = nullptr;
     s_ringZPrompt.screen = nullptr;
     s_ringZPrompt.ring = nullptr;
 }
 
-static bool s_guidePosAdjusted = false;
-static constexpr f32 kItemWheelPromptXOffset = -15.0f;
+void reset_ring_z_prompt() {
+    clear_ring_z_prompt_refs();
+    s_guidePosAdjusted = false;
+}
 
 static void apply_item_wheel_centering(dMenu_Ring_c* ring) {
     if (!g_configCustomZButtonEnabled) return;
@@ -863,9 +898,12 @@ static void apply_item_wheel_centering(dMenu_Ring_c* ring) {
     }
 }
 
-
 static void destroy_ring_z_prompt(dMenu_Ring_c* ring) {
-    if (s_ringZPrompt.ring != ring) return;
+    if (s_ringZPrompt.ring != ring) {
+        return;
+    }
+
+    // The ring menu owns this heap lifetime; keep only per-menu references here.
     clear_ring_z_prompt_refs();
 }
 
@@ -878,7 +916,9 @@ static void create_ring_z_prompt(dMenu_Ring_c* ring) {
     apply_item_wheel_centering(ring);
 
     auto* archive = dComIfGp_getMain2DArchive();
-    if (archive == nullptr) return;
+    if (archive == nullptr) {
+        return;
+    }
 
     J2DPane* anchor = ring->mpScreen->search(MULTI_CHAR('r_btn_n'));
     if (anchor != nullptr) {
@@ -887,7 +927,9 @@ static void create_ring_z_prompt(dMenu_Ring_c* ring) {
     }
 
     J2DScreen* screen = JKR_NEW J2DScreen();
-    if (screen == nullptr) return;
+    if (screen == nullptr) {
+        return;
+    }
     if (!screen->setPriority("zelda_game_image.blo", 0x20000, archive)) {
         JKR_DELETE(screen);
         return;
@@ -913,28 +955,23 @@ static void create_ring_z_prompt(dMenu_Ring_c* ring) {
 
     button->setAlphaRate(1.0f);
     button->show();
-    s_ringZPrompt.ring = ring;
-    s_ringZPrompt.screen = screen;
-    s_ringZPrompt.button = button;
+    s_ringZPrompt = {.ring = ring, .screen = screen, .button = button};
 }
 
 static void draw_ring_z_prompt(dMenu_Ring_c* ring) {
-    if (!g_configCustomZButtonEnabled || ring == nullptr || ring->mpScreen == nullptr || ring->mPlayerIsWolf) {
-        return;
-    }
-
-    if (s_ringZPrompt.ring != ring || s_ringZPrompt.screen == nullptr || s_ringZPrompt.button == nullptr) {
-        create_ring_z_prompt(ring);
-    }
-
-    if (s_ringZPrompt.ring != ring || s_ringZPrompt.screen == nullptr || s_ringZPrompt.button == nullptr) {
+    if (!g_configCustomZButtonEnabled || s_ringZPrompt.ring != ring ||
+        s_ringZPrompt.screen == nullptr || s_ringZPrompt.button == nullptr ||
+        ring == nullptr || ring->mpScreen == nullptr || ring->mPlayerIsWolf)
+    {
         return;
     }
 
     apply_item_wheel_centering(ring);
 
     J2DPane* anchor = ring->mpScreen->search(MULTI_CHAR('r_btn_n'));
-    if (anchor == nullptr) return;
+    if (anchor == nullptr) {
+        return;
+    }
 
     CPaneMgr paneMgr;
     Vec pos = paneMgr.getGlobalVtxCenter(anchor, true, 0);
@@ -944,10 +981,8 @@ static void draw_ring_z_prompt(dMenu_Ring_c* ring) {
     pos.y -= 5.0f;
 
     s_ringZPrompt.button->scale(0.9f, 0.9f);
-    s_ringZPrompt.button->paneTrans(
-        pos.x - s_ringZPrompt.button->getInitGlobalCenterPosX(),
-        pos.y - s_ringZPrompt.button->getInitGlobalCenterPosY()
-    );
+    s_ringZPrompt.button->paneTrans(pos.x - s_ringZPrompt.button->getInitGlobalCenterPosX(),
+                                    pos.y - s_ringZPrompt.button->getInitGlobalCenterPosY());
     s_ringZPrompt.button->setAlphaRate(ring->mAlphaRate);
     s_ringZPrompt.screen->draw(0.0f, 0.0f, dComIfGp_getCurrentGrafPort());
 }

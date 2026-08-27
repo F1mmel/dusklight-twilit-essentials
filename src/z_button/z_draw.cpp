@@ -231,8 +231,13 @@ void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f32 iconW
     if (maxNum > 0 && num > maxNum) num = maxNum;
 
     if (g_drawDigitPic[0] == nullptr) {
+        JKRExpHeap* heap2D = dComIfGp_getExpHeap2D();
+        JKRHeap* oldHeap = (heap2D != nullptr) ? mDoExt_setCurrentHeap(heap2D) : nullptr;
         for (int i = 0; i < 3; i++) {
             g_drawDigitPic[i] = JKR_NEW J2DPicture();
+        }
+        if (oldHeap != nullptr) {
+            mDoExt_setCurrentHeap(oldHeap);
         }
     }
 
@@ -397,7 +402,12 @@ void draw_z_ammo_digits(dMeter2Draw_c* draw, f32 baseX, f32 baseY, f32 iconW, f3
 
     if (z_item_is_lantern(zItem)) {
         if (g_zKanteraIcon == nullptr) {
+            JKRExpHeap* heap2D = dComIfGp_getExpHeap2D();
+            JKRHeap* oldHeap = (heap2D != nullptr) ? mDoExt_setCurrentHeap(heap2D) : nullptr;
             g_zKanteraIcon = JKR_NEW dKantera_icon_c();
+            if (oldHeap != nullptr) {
+                mDoExt_setCurrentHeap(oldHeap);
+            }
         }
         if (g_zKanteraIcon != nullptr) {
             f32 kanteraX = baseX + iconW * 0.5f - 8.0f;
@@ -495,6 +505,14 @@ HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, void*, v
     u32& param0 = mods::arg_ref<u32>(args, 1);
     param0 &= ~0x1000000u;
 
+    if (!z_items_dimmed()) {
+        dMeter2Info_onUseButton(METER2_USEBUTTON_Z);
+        if (draw != nullptr) {
+            draw->field_0x724 = 1.0f;
+            draw->mButtonZAlpha = 1.0f;
+        }
+    }
+
     if (draw != nullptr) {
         J2DScreen* screen = draw->getMainScreenPtr();
         if (screen != nullptr) {
@@ -571,7 +589,42 @@ void on_set_button_icon_midona_alpha_post(ModContext*, void* args, void*, void*)
     if (!g_configCustomZButtonEnabled || !args || isTitleOrMainMenu()) {
         return;
     }
-    z_mobile_report_after_midna_alpha(mods::arg<dMeter2Draw_c*>(args, 0));
+
+    dMeter2Draw_c* draw = mods::arg<dMeter2Draw_c*>(args, 0);
+    if (draw != nullptr) {
+        J2DScreen* screen = draw->getMainScreenPtr();
+        if (screen != nullptr && !is_pause_menu_open(draw) && !isWolfPlayer()) {
+            const u8 zBaseAlpha = z_button_base_alpha();
+            const u8 zIconAlpha = z_item_icon_alpha();
+
+            J2DPane* zbtn = screen->search(MULTI_CHAR('zbtn_n'));
+            if (zbtn != nullptr) {
+                zbtn->show();
+                zbtn->setAlpha(zBaseAlpha);
+            }
+            J2DPane* rbtn = screen->search(MULTI_CHAR('rbtn_n'));
+            if (rbtn != nullptr) {
+                rbtn->show();
+                rbtn->setAlpha(zBaseAlpha);
+            }
+            J2DPane* itemRPane = screen->search(MULTI_CHAR('r_itm_p'));
+            if (itemRPane != nullptr) {
+                itemRPane->show();
+                itemRPane->setAlpha(zIconAlpha);
+            }
+            J2DPane* itemRChild = screen->search(MULTI_CHAR('r_itm_pp'));
+            if (itemRChild != nullptr) {
+                if (g_zHasSecondLayer) {
+                    itemRChild->show();
+                    itemRChild->setAlpha(zIconAlpha);
+                } else {
+                    itemRChild->hide();
+                }
+            }
+        }
+    }
+
+    z_mobile_report_after_midna_alpha(draw);
 }
 
 HookAction on_set_button_icon_alpha_pre(ModContext*, void* args, void*, void*) {

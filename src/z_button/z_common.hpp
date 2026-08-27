@@ -14,6 +14,8 @@
 #include "d/d_s_play.h"
 #include "d/d_msg_object.h"
 #include "m_Do/m_Do_controller_pad.h"
+#include "JSystem/JKernel/JKRHeap.h"
+#include "JSystem/JKernel/JKRExpHeap.h"
 #include "JSystem/JUtility/JUTGamePad.h"
 #include "JSystem/J2DGraph/J2DScreen.h"
 #include "JSystem/J2DGraph/J2DPicture.h"
@@ -87,6 +89,7 @@ bool is_bomb_item(u8 itemNo);
 extern bool g_zDimX;
 extern bool g_zDimY;
 bool z_items_dimmed();
+bool z_mobile_wants_midona_host();
 u8 z_item_icon_alpha();
 u8 z_button_base_alpha();
 bool z_item_is_lantern(u8 itemNo);
