@@ -2,6 +2,8 @@
 
 #include "z_itemwheel.hpp"
 #include <d/d_menu_item_explain.h>
+#include <JSystem/JUtility/JUTFont.h>
+#include <cmath>
 
 DEFINE_HOOK(&dMenu_Ring_c::setActiveCursor, SetActiveCursorHook);
 DEFINE_HOOK(&dSv_player_status_a_c::setSelectItemIndex, SetSelectItemIndexHook);
@@ -13,6 +15,9 @@ DEFINE_HOOK(&dMenu_Ring_c::setSelectItemForce, SetSelectItemForceHook);
 DEFINE_HOOK(&dMenu_Ring_c::isMixItemOn, IsMixItemOnHook);
 DEFINE_HOOK(&dMenu_Ring_c::isMixItemOff, IsMixItemOffHook);
 DEFINE_HOOK(&dMenu_Ring_c::checkExplainForce, CheckExplainForceHook);
+DEFINE_HOOK(&dMenu_Ring_c::_create, RingCreateHook);
+DEFINE_HOOK(&dMenu_Ring_c::_delete, RingDeleteHook);
+DEFINE_HOOK(&dMenu_Ring_c::_draw, RingDrawHook);
 
 u8 get_ring_slot_for_item(dMenu_Ring_c* ring, u8 slotOrItem) {
     if (!ring || slotOrItem == 0xFF || slotOrItem == dItemNo_NONE_e) return 0xFF;
@@ -796,3 +801,173 @@ void on_check_status_post(ModContext*, void* args, void*, void*) {
 
     update_z_item_texture();
 }
+
+struct RingZButtonPrompt {
+    dMenu_Ring_c* ring = nullptr;
+    J2DScreen* screen = nullptr;
+    CPaneMgr* button = nullptr;
+};
+
+static RingZButtonPrompt s_ringZPrompt;
+
+static void hide_pane_tree(J2DPane* pane) {
+    if (pane == nullptr) return;
+    pane->hide();
+    for (J2DPane* child = pane->getFirstChildPane(); child != nullptr; child = child->getNextChildPane()) {
+        hide_pane_tree(child);
+    }
+}
+
+static void show_pane_tree(J2DPane* pane) {
+    if (pane == nullptr) return;
+    pane->show();
+    for (J2DPane* child = pane->getFirstChildPane(); child != nullptr; child = child->getNextChildPane()) {
+        show_pane_tree(child);
+    }
+}
+
+static void show_pane_parents(J2DPane* pane) {
+    for (J2DPane* parent = pane; parent != nullptr; parent = parent->getParentPane()) {
+        parent->show();
+    }
+}
+
+static void clear_ring_z_prompt_refs() {
+    if (s_ringZPrompt.screen != nullptr) {
+        JKR_DELETE(s_ringZPrompt.screen);
+    }
+    if (s_ringZPrompt.button != nullptr) {
+        JKR_DELETE(s_ringZPrompt.button);
+    }
+    s_ringZPrompt.button = nullptr;
+    s_ringZPrompt.screen = nullptr;
+    s_ringZPrompt.ring = nullptr;
+}
+
+static bool s_guidePosAdjusted = false;
+static constexpr f32 kItemWheelPromptXOffset = -15.0f;
+
+static void apply_item_wheel_centering(dMenu_Ring_c* ring) {
+    if (!g_configCustomZButtonEnabled) return;
+
+    if (!s_guidePosAdjusted) {
+        g_ringHIO.mGuidePosX[0] += kItemWheelPromptXOffset;
+        s_guidePosAdjusted = true;
+    }
+
+    if (ring != nullptr) {
+        ring->mRingGuidePosX[0] = g_ringHIO.mGuidePosX[0];
+        if (ring->mpTextParent[0] != nullptr) {
+            ring->mpTextParent[0]->paneTrans(ring->mRingGuidePosX[0], ring->mRingGuidePosY[0]);
+        }
+    }
+}
+
+
+static void destroy_ring_z_prompt(dMenu_Ring_c* ring) {
+    if (s_ringZPrompt.ring != ring) return;
+    clear_ring_z_prompt_refs();
+}
+
+static void create_ring_z_prompt(dMenu_Ring_c* ring) {
+    clear_ring_z_prompt_refs();
+    if (!g_configCustomZButtonEnabled || ring == nullptr || ring->mPlayerIsWolf || ring->mpScreen == nullptr) {
+        return;
+    }
+
+    apply_item_wheel_centering(ring);
+
+    auto* archive = dComIfGp_getMain2DArchive();
+    if (archive == nullptr) return;
+
+    J2DPane* anchor = ring->mpScreen->search(MULTI_CHAR('r_btn_n'));
+    if (anchor != nullptr) {
+        anchor->translate(anchor->getTranslateX() + 64.0f, anchor->getTranslateY());
+        anchor->hide();
+    }
+
+    J2DScreen* screen = JKR_NEW J2DScreen();
+    if (screen == nullptr) return;
+    if (!screen->setPriority("zelda_game_image.blo", 0x20000, archive)) {
+        JKR_DELETE(screen);
+        return;
+    }
+
+    dPaneClass_showNullPane(screen);
+    hide_pane_tree(screen->search('ROOT'));
+
+    J2DPane* zButtonPane = screen->search(MULTI_CHAR('zbtn_n'));
+    if (zButtonPane == nullptr) {
+        JKR_DELETE(screen);
+        return;
+    }
+
+    show_pane_parents(zButtonPane);
+    show_pane_tree(zButtonPane);
+
+    CPaneMgr* button = JKR_NEW CPaneMgr(screen, MULTI_CHAR('zbtn_n'), 2, nullptr);
+    if (button == nullptr) {
+        JKR_DELETE(screen);
+        return;
+    }
+
+    button->setAlphaRate(1.0f);
+    button->show();
+    s_ringZPrompt.ring = ring;
+    s_ringZPrompt.screen = screen;
+    s_ringZPrompt.button = button;
+}
+
+static void draw_ring_z_prompt(dMenu_Ring_c* ring) {
+    if (!g_configCustomZButtonEnabled || ring == nullptr || ring->mpScreen == nullptr || ring->mPlayerIsWolf) {
+        return;
+    }
+
+    if (s_ringZPrompt.ring != ring || s_ringZPrompt.screen == nullptr || s_ringZPrompt.button == nullptr) {
+        create_ring_z_prompt(ring);
+    }
+
+    if (s_ringZPrompt.ring != ring || s_ringZPrompt.screen == nullptr || s_ringZPrompt.button == nullptr) {
+        return;
+    }
+
+    apply_item_wheel_centering(ring);
+
+    J2DPane* anchor = ring->mpScreen->search(MULTI_CHAR('r_btn_n'));
+    if (anchor == nullptr) return;
+
+    CPaneMgr paneMgr;
+    Vec pos = paneMgr.getGlobalVtxCenter(anchor, true, 0);
+    pos.x += ring->mCenterPosX;
+    pos.y += ring->mCenterPosY;
+    pos.x += 5.0f;
+    pos.y -= 5.0f;
+
+    s_ringZPrompt.button->scale(0.9f, 0.9f);
+    s_ringZPrompt.button->paneTrans(
+        pos.x - s_ringZPrompt.button->getInitGlobalCenterPosX(),
+        pos.y - s_ringZPrompt.button->getInitGlobalCenterPosY()
+    );
+    s_ringZPrompt.button->setAlphaRate(ring->mAlphaRate);
+    s_ringZPrompt.screen->draw(0.0f, 0.0f, dComIfGp_getCurrentGrafPort());
+}
+
+void after_ring_create(ModContext*, void* args, void*, void*) {
+    if (!args) return;
+    create_ring_z_prompt(mods::arg<dMenu_Ring_c*>(args, 0));
+}
+
+HookAction before_ring_delete(ModContext*, void* args, void*, void*) {
+    if (args) {
+        destroy_ring_z_prompt(mods::arg<dMenu_Ring_c*>(args, 0));
+    }
+    return HOOK_CONTINUE;
+}
+
+void after_ring_draw(ModContext*, void* args, void*, void*) {
+    if (!args) return;
+    draw_ring_z_prompt(mods::arg<dMenu_Ring_c*>(args, 0));
+}
+
+
+

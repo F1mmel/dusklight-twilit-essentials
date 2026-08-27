@@ -2,6 +2,7 @@
 
 #include "z_common.hpp"
 #include "z_draw.hpp"
+#include "midna_location.hpp"
 
 struct SetActiveCursorHook;
 struct SetSelectItemIndexHook;
@@ -13,6 +14,9 @@ struct SetSelectItemForceHook;
 struct IsMixItemOnHook;
 struct IsMixItemOffHook;
 struct CheckExplainForceHook;
+struct RingCreateHook;
+struct RingDeleteHook;
+struct RingDrawHook;
 
 u8 get_ring_slot_for_item(dMenu_Ring_c* ring, u8 slotOrItem);
 void trigger_ring_item_slide_z(dMenu_Ring_c* ring, u8 itemNo);
@@ -30,3 +34,6 @@ HookAction on_set_select_item_force_pre(ModContext* mod_ctx, void* args, void* r
 HookAction on_is_mix_item_on_pre(ModContext* mod_ctx, void* args, void* ret, void* user_data);
 HookAction on_is_mix_item_off_pre(ModContext* mod_ctx, void* args, void* ret, void* user_data);
 HookAction on_check_explain_force_pre(ModContext* mod_ctx, void* args, void* ret, void* user_data);
+void after_ring_create(ModContext* mod_ctx, void* args, void* ret, void* user_data);
+HookAction before_ring_delete(ModContext* mod_ctx, void* args, void* ret, void* user_data);
+void after_ring_draw(ModContext* mod_ctx, void* args, void* ret, void* user_data);

@@ -87,6 +87,18 @@ static ResTIMG* get_dpad_left_texture() {
     return nullptr;
 }
 
+static const ResTIMG* s_origZbtnTex = nullptr;
+static JUtility::TColor s_origBlack(0, 0, 0, 0);
+static JUtility::TColor s_origWhite(255, 255, 255, 255);
+static bool s_hasOrigProps = false;
+
+const ResTIMG* get_orig_z_button_texture() {
+    return s_origZbtnTex;
+}
+
+JUtility::TColor get_orig_z_button_black() { return s_origBlack; }
+JUtility::TColor get_orig_z_button_white() { return s_origWhite; }
+
 static void update_custom_z_button_prompt(dMeterButton_c* meterButton) {
     if (!meterButton || !meterButton->mpButtonScreen) return;
 
@@ -95,11 +107,6 @@ static void update_custom_z_button_prompt(dMeterButton_c* meterButton) {
     J2DPane* zbtn_n = buttonScreen->search(MULTI_CHAR('zbtn_n'));
     J2DPane* midonaPane = buttonScreen->search(MULTI_CHAR('midona'));
     J2DPane* z_btnl = buttonScreen->search(MULTI_CHAR('z_btnl'));
-
-    static const ResTIMG* s_origZbtnTex = nullptr;
-    static JUtility::TColor s_origBlack(0, 0, 0, 0);
-    static JUtility::TColor s_origWhite(255, 255, 255, 255);
-    static bool s_hasOrigProps = false;
 
     if (zbtnPic) {
         if (!s_origZbtnTex && zbtnPic->getTexture(0)) {

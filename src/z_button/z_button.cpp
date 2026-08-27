@@ -52,19 +52,27 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     g_zLogSvc = log_svc;
     g_zModCtx = mod_ctx;
 
+    if (!hook_svc)
+        return MOD_OK;
+
+    // HUD and Item Wheel UI hooks (run on all builds, including native Z-button engines)
+    mods::hook::add_pre<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_pre);
+    mods::hook::add_post<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_post);
+    mods::hook::add_pre<MeterButtonDrawHook>(hook_svc, on_meter_button_draw_pre);
+    mods::hook::add_post<RingCreateHook>(hook_svc, after_ring_create);
+    mods::hook::add_pre<RingDeleteHook>(hook_svc, before_ring_delete);
+    mods::hook::add_post<RingDrawHook>(hook_svc, after_ring_draw);
+    mods::hook::add_pre<SetActiveCursorHook>(hook_svc, on_set_active_cursor_pre);
+    mods::hook::add_post<SetActiveCursorHook>(hook_svc, on_set_active_cursor_post);
+
     if (isNativeZButtonEngine()) {
         if (log_svc) {
-            log_svc->info(mod_ctx, "Native 3-item / Z-button engine detected (Lazy Tweaks). Skipping custom Z-button hooks.");
+            log_svc->info(mod_ctx, "Native 3-item / Z-button engine detected (Lazy Tweaks). Skipping custom low-level inventory hooks.");
         }
         return MOD_OK;
     }
 
-    if (!hook_svc || !g_configCustomZButtonEnabled)
-        return MOD_OK;
-
     mods::hook::add_post<PadReadHook>(hook_svc, on_pad_read_post);
-    mods::hook::add_pre<SetActiveCursorHook>(hook_svc, on_set_active_cursor_pre);
-    mods::hook::add_post<SetActiveCursorHook>(hook_svc, on_set_active_cursor_post);
     mods::hook::add_post<CheckStatusHook>(hook_svc, on_check_status_post);
     mods::hook::add_post<Meter2ExecuteHook>(hook_svc, on_meter2_execute_post);
     mods::hook::add_post<Meter2DrawDrawHook>(hook_svc, on_meter2_draw_draw_post);
@@ -89,9 +97,6 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     mods::hook::add_pre<IsMixItemOnHook>(hook_svc, on_is_mix_item_on_pre);
     mods::hook::add_pre<IsMixItemOffHook>(hook_svc, on_is_mix_item_off_pre);
     mods::hook::add_pre<CheckExplainForceHook>(hook_svc, on_check_explain_force_pre);
-    mods::hook::add_pre<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_pre);
-    mods::hook::add_post<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_post);
-    mods::hook::add_pre<MeterButtonDrawHook>(hook_svc, on_meter_button_draw_pre);
 
     return MOD_OK;
 }
