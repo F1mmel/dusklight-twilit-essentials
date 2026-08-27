@@ -1,8 +1,11 @@
 #include "hp_bars.hpp"
 
 #include <unordered_map>
+#include <vector>
 #include <cstdio>
 #include <cstring>
+#include <cmath>
+#include <cstdlib>
 #include <cstdint>
 
 #include "mods/svc/hook.hpp"
@@ -31,11 +34,27 @@
 
 bool g_configHpBarsEnabled = false;
 bool g_configHpBarsShowNumbers = false;
+bool g_configDamageNumbersEnabled = false;
 
-DEFINE_HOOK(&dMeter2_c::_draw, Meter2DrawHook);
+DEFINE_HOOK(&dMeter2Draw_c::draw, Meter2DrawHook);
 
 static std::unordered_map<fpc_ProcID, s16> g_maxHealthMap;
 static std::unordered_map<fpc_ProcID, f32> g_enemyAlphaMap;
+
+struct DamagePopup {
+    fpc_ProcID enemyId;
+    s16 damageAmount;
+    cXyz worldPos;
+    f32 velY;
+    f32 velX;
+    f32 velZ;
+    int currentFrame;
+    int maxFrames;
+    bool isCritical;
+};
+
+static std::unordered_map<fpc_ProcID, s16> s_lastHealthMap;
+static std::vector<DamagePopup> s_damagePopups;
 
 // Text drawing helper (restores GX 2D state)
 static void draw_text_ingame(const char* text, f32 x, f32 y, f32 charW, f32 charH, JUtility::TColor color, bool hasShadow = true) {
@@ -90,6 +109,35 @@ static bool isSenseOnlyEnemy(s16 name) {
             name == fpcNm_E_YG_e);   // Shadow insect
 }
 
+static bool isEnemyActor(fopAc_ac_c* actor, fopAc_ac_c* player) {
+    if (!actor || actor == player) return false;
+
+    s16 name = fopAcM_GetName(actor);
+    if (name == fpcNm_ALINK_e || name == fpcNm_HORSE_e || name == fpcNm_COW_e ||
+        name == fpcNm_NI_e    || name == fpcNm_DO_e    || name == fpcNm_SQ_e) {
+        return false;
+    }
+
+    u8 group = fopAcM_GetGroup(actor);
+    if (group == fopAc_NPC_e || group == fopAc_ENV_e) {
+        return false;
+    }
+
+    if (group == fopAc_ENEMY_e) {
+        return true;
+    }
+
+    // Comprehensive enemy & boss ranges from fpc_name.h
+    if ((name >= 0x0D2 && name <= 0x0D2) ||
+        (name >= 0x0E4 && name <= 0x0F5) ||
+        (name >= 0x1AF && name <= 0x220) ||
+        (name >= 0x230 && name <= 0x278)) {
+        return true;
+    }
+
+    return false;
+}
+
 static bool checkLineOfSight(fopAc_ac_c* player, fopAc_ac_c* enemy, const cXyz& targetPos) {
     if (!player || !enemy) return false;
 
@@ -102,12 +150,10 @@ static bool checkLineOfSight(fopAc_ac_c* player, fopAc_ac_c* enemy, const cXyz& 
     cXyz diff = targetPos - playerEye;
     f32 dist = diff.abs();
 
-    // Close range bypass
     if (dist < 350.0f) {
         return true;
     }
 
-    // Offset ray to avoid self-hits
     cXyz start = playerEye + diff * (60.0f / dist);
     cXyz end = targetPos - diff * (60.0f / dist);
 
@@ -131,38 +177,27 @@ static int drawEnemyHpBarCallback(void* pActor, void* pData) {
     if (!actor) return 0;
 
     DrawHpBarContext* ctx = static_cast<DrawHpBarContext*>(pData);
+    if (!ctx || !ctx->player) return 0;
 
-    fpc_ProcID id = fopAcM_GetID(actor);
+    if (!isEnemyActor(actor, ctx->player)) {
+        return 0;
+    }
 
-    bool isAlive = (actor->health > 0);
-    s16 name = fopAcM_GetName(actor);
-    u8 group = fopAcM_GetGroup(actor);
-
-    // Skip domestic animals
-    bool isPassiveAnimal = (name == fpcNm_HORSE_e ||
-                            name == fpcNm_COW_e   || name == fpcNm_NI_e   ||
-                            name == fpcNm_DO_e    || name == fpcNm_SQ_e);
-
-    bool isPlayer = (ctx && actor == ctx->player) || (name == fpcNm_ALINK_e);
-
-    bool isEnemyRange = (name >= fpcNm_E_AI_e && name <= fpcNm_E_WAP_e) || (name == fpcNm_B_ZANTS_e);
-    bool isHostileGroup = (group == fopAc_ENEMY_e);
-
-    bool isEnemy = isAlive && !isPassiveAnimal && !isPlayer && (isEnemyRange || isHostileGroup);
-
-    // Reject non-hostile objects and NPCs (ghost soldiers, training dummies, etc.)
-    if (group == fopAc_ACTOR_e || group == fopAc_NPC_e || group == fopAc_ENV_e) {
-        isEnemy = false;
+    if (actor->health <= 0) {
+        return 0;
     }
 
     if ((actor->actor_status & fopAcStts_NODRAW_e) != 0 || (actor->actor_condition & fopAcCnd_NODRAW_e) != 0) {
-        isEnemy = false;
+        return 0;
     }
 
+    s16 name = fopAcM_GetName(actor);
     bool isSenseActive = daPy_py_c::checkNowWolfPowerUp() || dComIfGs_wolfeye_effect_check();
     if (isSenseOnlyEnemy(name) && !isSenseActive) {
-        isEnemy = false;
+        return 0;
     }
+
+    fpc_ProcID id = fopAcM_GetID(actor);
 
     // Max HP tracking
     auto itMaxHp = g_maxHealthMap.find(id);
@@ -203,12 +238,12 @@ static int drawEnemyHpBarCallback(void* pActor, void* pData) {
                      screenPos.y >= -80.0f && screenPos.y <= screenH + 80.0f);
 
     bool hasLos = false;
-    if (isEnemy && onScreen && ctx && ctx->player) {
+    if (onScreen) {
         hasLos = checkLineOfSight(ctx->player, actor, pos);
     }
 
     f32 targetAlpha = 0.0f;
-    if (isEnemy && onScreen && hasLos && ctx && ctx->player) {
+    if (onScreen && hasLos) {
         f32 dist = fopAcM_searchActorDistance(ctx->player, actor);
         const f32 maxDist = 4500.0f;
         const f32 fadeDist = 800.0f;
@@ -290,11 +325,129 @@ static int drawEnemyHpBarCallback(void* pActor, void* pData) {
     return 0;
 }
 
-static void on_meter2_draw_post(ModContext*, void*, void*, void*) {
-    if (!g_configHpBarsEnabled) {
+static void* trackEnemyDamageCallback(void* pActor, void*) {
+    fopAc_ac_c* actor = static_cast<fopAc_ac_c*>(pActor);
+    if (!actor) return nullptr;
+
+    fopAc_ac_c* player = dComIfGp_getPlayer(0);
+    if (!isEnemyActor(actor, player)) {
+        return nullptr;
+    }
+
+    fpc_ProcID id = fopAcM_GetID(actor);
+    s16 curHp = actor->health;
+
+    auto it = s_lastHealthMap.find(id);
+    if (it != s_lastHealthMap.end()) {
+        s16 prevHp = it->second;
+        if (curHp < prevHp) {
+            s16 damage = prevHp - curHp;
+            if (damage > 0) {
+                DamagePopup popup;
+                popup.enemyId = id;
+                popup.damageAmount = damage;
+
+                popup.worldPos = actor->attention_info.position;
+                if (popup.worldPos.y == 0.0f) {
+                    popup.worldPos = actor->current.pos;
+                    popup.worldPos.y += 100.0f;
+                }
+
+                f32 randX = (static_cast<f32>(std::rand() % 30) - 15.0f);
+                f32 randZ = (static_cast<f32>(std::rand() % 30) - 15.0f);
+                popup.worldPos.x += randX;
+                popup.worldPos.z += randZ;
+
+                popup.velY = 3.5f;
+                popup.velX = randX * 0.05f;
+                popup.velZ = randZ * 0.05f;
+                popup.currentFrame = 0;
+                popup.maxFrames = 45;
+                popup.isCritical = (damage >= 60);
+
+                s_damagePopups.push_back(popup);
+            }
+        }
+    }
+
+    s_lastHealthMap[id] = curHp;
+    return nullptr;
+}
+
+void update_hp_bars(const LogService*, ModContext*) {
+    if (!g_configDamageNumbersEnabled) {
+        s_lastHealthMap.clear();
+        s_damagePopups.clear();
         return;
     }
 
+    if (dComIfGp_isPauseFlag() || dScnPly_c::isPause()) {
+        return;
+    }
+
+    fopAcIt_Judge(trackEnemyDamageCallback, nullptr);
+
+    for (auto it = s_damagePopups.begin(); it != s_damagePopups.end();) {
+        it->currentFrame++;
+        it->worldPos.y += it->velY;
+        it->worldPos.x += it->velX;
+        it->worldPos.z += it->velZ;
+        it->velY *= 0.90f;
+
+        if (it->currentFrame >= it->maxFrames) {
+            it = s_damagePopups.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+static void draw_damage_popups() {
+    if (!g_configDamageNumbersEnabled || s_damagePopups.empty()) {
+        return;
+    }
+
+    for (const auto& popup : s_damagePopups) {
+        cXyz pos = popup.worldPos;
+        Vec screenPos;
+        mDoLib_project(&pos, &screenPos);
+
+        if (screenPos.z < 400000.0f && screenPos.x > -50.0f && screenPos.x < 700.0f && screenPos.y > -50.0f && screenPos.y < 500.0f) {
+            f32 alphaF = 1.0f;
+            if (popup.currentFrame > (popup.maxFrames - 15)) {
+                alphaF = static_cast<f32>(popup.maxFrames - popup.currentFrame) / 15.0f;
+            }
+
+            u8 alpha = static_cast<u8>(alphaF * 255.0f);
+            if (alpha == 0) continue;
+
+            f32 popScale = 1.0f;
+            if (popup.currentFrame < 5) {
+                popScale = 1.3f - (static_cast<f32>(popup.currentFrame) * 0.06f);
+            }
+
+            char numText[32];
+            if (popup.isCritical) {
+                std::snprintf(numText, sizeof(numText), "-%d!", popup.damageAmount);
+            } else {
+                std::snprintf(numText, sizeof(numText), "-%d", popup.damageAmount);
+            }
+
+            f32 charW = (popup.isCritical ? 14.0f : 11.0f) * popScale;
+            f32 charH = (popup.isCritical ? 17.0f : 14.0f) * popScale;
+
+            f32 textW = get_text_width_ingame(numText, charW);
+            f32 drawX = screenPos.x - (textW * 0.5f);
+            f32 drawY = screenPos.y - (charH * 0.5f);
+
+            JUtility::TColor numColor(235, 45, 45, alpha);
+
+            draw_text_ingame(numText, drawX, drawY, charW, charH, numColor);
+        }
+    }
+}
+
+static void on_meter2_draw_post(ModContext*, void*, void*, void*) {
     if (dComIfGp_isPauseFlag() || dScnPly_c::isPause()) {
         return;
     }
@@ -303,16 +456,18 @@ static void on_meter2_draw_post(ModContext*, void*, void*, void*) {
         return;
     }
 
-    fopAc_ac_c* player = dComIfGp_getPlayer(0);
-    if (!player) {
-        return;
+    if (g_configHpBarsEnabled) {
+        fopAc_ac_c* player = dComIfGp_getPlayer(0);
+        if (player) {
+            DrawHpBarContext ctx;
+            ctx.player = player;
+            ctx.cursorOffsetY = 10.0f;
+
+            fopAcIt_Executor(reinterpret_cast<fopAcIt_ExecutorFunc>(drawEnemyHpBarCallback), &ctx);
+        }
     }
 
-    DrawHpBarContext ctx;
-    ctx.player = player;
-    ctx.cursorOffsetY = 10.0f;
-
-    fopAcIt_Executor(reinterpret_cast<fopAcIt_ExecutorFunc>(drawEnemyHpBarCallback), &ctx);
+    draw_damage_popups();
 }
 
 ModResult init_hp_bars(const HookService* hook_svc, ModError*) {
@@ -326,4 +481,6 @@ ModResult init_hp_bars(const HookService* hook_svc, ModError*) {
 void shutdown_hp_bars() {
     g_maxHealthMap.clear();
     g_enemyAlphaMap.clear();
+    s_lastHealthMap.clear();
+    s_damagePopups.clear();
 }

@@ -25,7 +25,6 @@ add_mod(dusklight_twilit_essentials
             src/mod.cpp
             src/hp_bars/hp_bars.cpp
             src/visible_equipment/visible_equipment.cpp
-            src/damage_numbers/damage_numbers.cpp
             src/z_button/z_button.cpp
             src/horse_call/horse_call.cpp
             src/sheathed_spin/sheathed_spin.cpp

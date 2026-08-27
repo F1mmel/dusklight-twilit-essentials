@@ -1,6 +1,5 @@
 #include "hp_bars/hp_bars.hpp"
 #include "visible_equipment/visible_equipment.hpp"
-#include "damage_numbers/damage_numbers.hpp"
 #include "z_button/z_button.hpp"
 #include "horse_call/horse_call.hpp"
 #include "sheathed_spin/sheathed_spin.hpp"
@@ -416,9 +415,13 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
         svc_ui->pane_add_control(mod_ctx, panel, &ctrlUpdate, nullptr);
     }
 
-    // HP Bars
+    // HP Bars & Damage Numbers
     svc_ui->pane_add_section(mod_ctx, panel, "Enemy HP Bars");
+#if defined(__ANDROID__) || defined(TARGET_ANDROID)
+    svc_ui->pane_add_text(mod_ctx, panel, "Shows health bars and damage numbers above enemies.\n(Note: Currently not supported on Android).", nullptr);
+#else
     svc_ui->pane_add_text(mod_ctx, panel, "Shows health bars above enemies during combat.", nullptr);
+#endif
     if (s_varHpBars != 0) {
         UiControlDesc ctrlHp = UI_CONTROL_DESC_INIT;
         ctrlHp.kind = UI_CONTROL_TOGGLE;
@@ -438,17 +441,15 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
         svc_ui->pane_add_control(mod_ctx, panel, &ctrlHpNum, nullptr);
     }
 
-    // Damage Numbers
-    svc_ui->pane_add_section(mod_ctx, panel, "Damage Numbers");
-    svc_ui->pane_add_text(mod_ctx, panel, "Pop-up numbers showing damage dealt to enemies.", nullptr);
     if (s_varDamageNumbers != 0) {
         UiControlDesc ctrlDmg = UI_CONTROL_DESC_INIT;
         ctrlDmg.kind = UI_CONTROL_TOGGLE;
-        ctrlDmg.label = "Enabled";
+        ctrlDmg.label = "Show damage numbers";
         ctrlDmg.binding = UI_BINDING_CONFIG_VAR;
         ctrlDmg.config_var = s_varDamageNumbers;
         svc_ui->pane_add_control(mod_ctx, panel, &ctrlDmg, nullptr);
     }
+
 
     // Visible Equipment
     svc_ui->pane_add_section(mod_ctx, panel, "Visible Equipment");
@@ -792,7 +793,6 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     }
 
     init_hp_bars(svc_hook, error);
-    init_damage_numbers(svc_hook, error);
     init_visible_equipment(svc_hook, error);
     init_z_button(svc_hook, svc_log, mod_ctx, error);
     init_horse_call(svc_hook, error);
@@ -807,7 +807,7 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
 }
 
 MOD_EXPORT ModResult mod_update(ModError*) {
-    update_damage_numbers(svc_log, mod_ctx);
+    update_hp_bars(svc_log, mod_ctx);
     update_visible_equipment(svc_log, mod_ctx);
     update_z_button(svc_log, mod_ctx);
     check_iron_boots_unequip_on_overwrite();
@@ -822,7 +822,6 @@ MOD_EXPORT ModResult mod_update(ModError*) {
 MOD_EXPORT ModResult mod_shutdown(ModError*) {
     s_titleModActive = false;
     shutdown_hp_bars();
-    shutdown_damage_numbers();
     shutdown_visible_equipment();
     shutdown_z_button();
     shutdown_horse_call();
@@ -830,6 +829,7 @@ MOD_EXPORT ModResult mod_shutdown(ModError*) {
     shutdown_collection_menu();
     return MOD_OK;
 }
+
 }
 
 const ResourceService* get_resource_service() {
