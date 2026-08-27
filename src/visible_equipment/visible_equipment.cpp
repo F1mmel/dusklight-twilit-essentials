@@ -7,11 +7,13 @@
 #include "d/d_item_data.h"
 #include "d/d_kankyo.h"
 #include "f_pc/f_pc_name.h"
+#include "f_pc/f_pc_profile_lst.h"
 #include "m_Do/m_Do_ext.h"
 #include "m_Do/m_Do_mtx.h"
 #include "mods/api.h"
 #include "mods/svc/hook.hpp"
 #include "mods/svc/log.h"
+#include "../z_button/z_button.hpp"
 #include <cstdio>
 
 static const LogService *s_logSvc = nullptr;
@@ -38,6 +40,18 @@ inline s16 degToS16(f32 deg) {
 }
 
 extern bool isNativeZButtonEngine();
+
+// this is a helper function for finding the correct address of a member if it doesn't line up with the SDK
+template <typename T>
+const T &addressShift(const T &member) { // template because it accepts a param regardless of type
+  const u32 actualSize = g_profile_ALINK.base.base.process_size; // size of daAlink_c on runtime
+  const size_t linkSize = sizeof(daAlink_c); // expected size based on dusklight's SDK
+  // shift by the difference between the actual size and the expected size
+  const int shiftByThis = static_cast<int>(actualSize) - static_cast<int>(linkSize);
+
+  // get a new pointer to the member by shifting the address of the member by the difference
+  return *reinterpret_cast<const T *>(reinterpret_cast<const u8 *>(&member) + shiftByThis);
+}
 
 static u32 getLinkShadowId(daAlink_c *alink) {
   if (alink == nullptr) {
@@ -373,6 +387,18 @@ static void renderLantern(daAlink_c *alink) {
     return;
   }
 
+  /** the current implementation technically works anyways because it checks two flags before checking mEquipItem
+  but I figure it couldn't hurt to set a guard just in case **/
+  if (isNativeZButtonEngine()) {
+    const u16 shiftedItem = addressShift(alink->mEquipItem); // get the shifted address of lantern
+    if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
+        alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
+        shiftedItem == dItemNo_KANTERA_e) {
+      s_veLanternCallbackRegistered = false;
+      return;
+    }
+  }
+
   // Skip if active lantern is out
   if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
       alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
@@ -607,8 +633,19 @@ static void on_alink_draw_post(ModContext *, void *, void *, void *) {
   }
 
   bool shouldShowBow = g_configVisibleEquipShowBow && checkShouldShowBow();
-  bool isBowInHand = alink->checkBowAndSlingItem(alink->mEquipItem) ||
+  bool isBowInHand = false;
+
+  if (isNativeZButtonEngine()) {
+    /** shift the address of the bow item by the address shift calculated by helper function addressShift();
+    this should fix the bow not correctly coming off of Link's back when the bow is drawn **/
+    const u16 shiftedItem = addressShift(alink->mEquipItem);
+    isBowInHand = alink->checkBowAndSlingItem(shiftedItem) ||
+                     shiftedItem == dItemNo_BOW_e;
+  }
+  else {
+    isBowInHand = alink->checkBowAndSlingItem(alink->mEquipItem) ||
                      (alink->mEquipItem == dItemNo_BOW_e);
+  }
 
   if (shouldShowBow) {
     renderBow(alink, shouldShowBow, isBowInHand);

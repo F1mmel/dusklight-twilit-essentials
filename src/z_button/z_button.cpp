@@ -7,6 +7,7 @@
 #include "z_itemwheel.cpp"
 #include "z_item_actions.cpp"
 #include "z_draw.cpp"
+#include "f_pc/f_pc_profile_lst.h"
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -18,33 +19,20 @@
 #endif
 
 bool isNativeZButtonEngine() {
-    static int s_cachedResult = -1;
-    if (s_cachedResult != -1) {
-        return s_cachedResult == 1;
-    }
+    /** this should now more definitively check if mItemHeap is [2] or [3] by checking if the size of daAlink_c on
+    runtime is correct vs what the SDK assumes it is **/
+    const u32 actualSize = g_profile_ALINK.base.base.process_size; // size of daAlink_c on runtime
+    const size_t linkSize = sizeof(daAlink_c); // expected size based on dusklight's SDK
+    const size_t animHeapSize = sizeof(daPy_anmHeap_c); // expected size of mItemHeap/mAnmHeap based on dusklight's SDK
 
-#if defined(_WIN32)
-    HMODULE hExe = GetModuleHandleA(nullptr);
-    if (hExe != nullptr) {
-        if (GetProcAddress(hExe, "?checkShieldCrouch@daAlink_c@@QEAAHXZ") != nullptr ||
-            GetProcAddress(hExe, "?setShieldCrouch@daAlink_c@@QEAAXXZ") != nullptr ||
-            GetProcAddress(hExe, "?loseRupees@daAlink_c@@QEAAXXZ") != nullptr)
-        {
-            s_cachedResult = 1;
-            return true;
-        }
-    }
-#else
-    if (dlsym(RTLD_DEFAULT, "_ZN8daAlink_c17checkShieldCrouchEv") != nullptr ||
-        dlsym(RTLD_DEFAULT, "_ZN8daAlink_c15setShieldCrouchEv") != nullptr ||
-        dlsym(RTLD_DEFAULT, "_ZN8daAlink_c10loseRupeesEv") != nullptr)
-    {
-        s_cachedResult = 1;
+    /** lazy tweaks or a z-items fork that increased mItemHeap to [3] will shift the size of daAlink_c by more than
+    what is calculated here, but this will know it's specifically a z-items fork if daAlink_c is increased by
+    specifically 32 (another mItemHeap) (assuming no other heaps are increased or any other size is added);
+    if a fork happens to do other weird stuff (which I'm going to avoid doing with lazy tweaks),
+    this won't catch it, but this works for now unless a universal implementation is wanted **/
+    if (static_cast<const int>(actualSize) == static_cast<const int>(linkSize) + static_cast<const int>(animHeapSize)) {
         return true;
     }
-#endif
-
-    s_cachedResult = 0;
     return false;
 }
 
