@@ -125,9 +125,7 @@ inline bool is_collect_item_unlocked(u8 x, u8 y) {
                    dComIfGs_isItemFirstBit(dItemNo_MASTER_SWORD_e) ||
                    (dComIfGs_getSelectEquipSword() == dItemNo_MASTER_SWORD_e) ||
                    dComIfGs_isItemFirstBit(dItemNo_LIGHT_SWORD_e) ||
-                   (dComIfGs_getSelectEquipSword() == dItemNo_LIGHT_SWORD_e) ||
-                   dComIfGs_isItemFirstBit(dItemNo_WEAR_KOKIRI_e) ||
-                   (dComIfGs_getSelectEquipClothes() == dItemNo_WEAR_KOKIRI_e);
+                   (dComIfGs_getSelectEquipSword() == dItemNo_LIGHT_SWORD_e);
         }
         if (x == 4) {
             return dComIfGs_isItemFirstBit(dItemNo_SWORD_e) ||
@@ -146,8 +144,11 @@ inline bool is_collect_item_unlocked(u8 x, u8 y) {
         if (x == 6) return true; // Heart Container
     } else if (y == 1) {
         if (x == 3) {
+            bool hasEverHadOrdonShield = dComIfGs_isCollectShield(0) ||
+                                         dComIfGs_isItemFirstBit(dItemNo_WOOD_SHIELD_e) ||
+                                         (dComIfGs_getSelectEquipShield() == dItemNo_WOOD_SHIELD_e);
             if (g_configCollectionKeepOrdonShield) {
-                return true;
+                return hasEverHadOrdonShield;
             }
             return dComIfGs_isItemFirstBit(dItemNo_WOOD_SHIELD_e) ||
                    (dComIfGs_getSelectEquipShield() == dItemNo_WOOD_SHIELD_e);
