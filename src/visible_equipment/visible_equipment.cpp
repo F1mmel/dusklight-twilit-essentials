@@ -363,9 +363,7 @@ static void renderLantern(daAlink_c *alink) {
     mDoMtx_stack_c::XYZrotM(cM_deg2s(-75.0f), cM_deg2s(62.0f), cM_deg2s(89.0f));
     alink->mpKanteraModel->setBaseTRMtx(mDoMtx_stack_c::get());
 
-    cXyz &flamePos = isNativeZButtonEngine()
-                         ? const_cast<cXyz &>(addressShift(alink->mKandelaarFlamePos))
-                         : alink->mKandelaarFlamePos;
+    cXyz &flamePos = alink->mKandelaarFlamePos;
     if (flamePos.abs2() < 1.0f) {
       mDoMtx_multVecZero(mDoMtx_stack_c::get(), &flamePos);
       flamePos.y -= 17.0f;
