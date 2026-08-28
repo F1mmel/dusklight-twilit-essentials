@@ -342,19 +342,10 @@ static void renderLantern(daAlink_c *alink) {
   }
 
   // Skip if active lantern is out (vanilla game handles model, light, and physics)
-  if (isNativeZButtonEngine()) {
-    const u16 shiftedItem = addressShift(alink->mEquipItem);
-    if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
-        alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
-        shiftedItem == dItemNo_KANTERA_e) {
-      return;
-    }
-  } else {
-    if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
+  if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
         alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
         alink->mEquipItem == dItemNo_KANTERA_e) {
       return;
-    }
   }
 
   if (alink->mpLinkModel == nullptr ||
@@ -372,9 +363,7 @@ static void renderLantern(daAlink_c *alink) {
     mDoMtx_stack_c::XYZrotM(cM_deg2s(-75.0f), cM_deg2s(62.0f), cM_deg2s(89.0f));
     alink->mpKanteraModel->setBaseTRMtx(mDoMtx_stack_c::get());
 
-    cXyz &flamePos = isNativeZButtonEngine()
-                         ? const_cast<cXyz &>(addressShift(alink->mKandelaarFlamePos))
-                         : alink->mKandelaarFlamePos;
+    cXyz &flamePos = alink->mKandelaarFlamePos;
     if (flamePos.abs2() < 1.0f) {
       mDoMtx_multVecZero(mDoMtx_stack_c::get(), &flamePos);
       flamePos.y -= 17.0f;
