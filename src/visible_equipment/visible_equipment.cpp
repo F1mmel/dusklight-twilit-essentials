@@ -342,19 +342,10 @@ static void renderLantern(daAlink_c *alink) {
   }
 
   // Skip if active lantern is out (vanilla game handles model, light, and physics)
-  if (isNativeZButtonEngine()) {
-    const u16 shiftedItem = addressShift(alink->mEquipItem);
-    if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
-        alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
-        shiftedItem == dItemNo_KANTERA_e) {
-      return;
-    }
-  } else {
-    if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
+  if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
         alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
         alink->mEquipItem == dItemNo_KANTERA_e) {
       return;
-    }
   }
 
   if (alink->mpLinkModel == nullptr ||
