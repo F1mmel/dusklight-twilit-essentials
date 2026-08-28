@@ -43,10 +43,9 @@ extern bool isNativeZButtonEngine();
 
 // this is a helper function for finding the correct address of a member if it doesn't line up with the SDK
 template <typename T>
-const T &addressShift(const T &member) {                           // template because it accepts a param regardless of type
-  const u32 actualSize = g_profile_ALINK.base.base.process_size;   // size of daAlink_c on runtime
-  const size_t linkSize = sizeof(daAlink_c);                       // expected size based on dusklight's SDK
-
+const T &addressShift(const T &member) { // template because it accepts a param regardless of type
+  const u32 actualSize = g_profile_ALINK.base.base.process_size; // size of daAlink_c on runtime
+  const size_t linkSize = sizeof(daAlink_c); // expected size based on dusklight's SDK
   // shift by the difference between the actual size and the expected size
   const int shiftByThis = static_cast<int>(actualSize) - static_cast<int>(linkSize);
 
