@@ -470,23 +470,11 @@ static void on_meter2_draw_post(ModContext*, void*, void*, void*) {
     draw_damage_popups();
 }
 
-static bool s_hpBarsSupported = false;
-
-bool isHpBarsSupported() {
-#if defined(__ANDROID__) || defined(TARGET_ANDROID)
-    return false;
-#else
-    return s_hpBarsSupported;
-#endif
-}
-
 ModResult init_hp_bars(const HookService* hook_svc, ModError*) {
     if (!hook_svc) {
         return MOD_OK;
     }
-    ModResult res = mods::hook::add_post<Meter2DrawHook>(hook_svc, on_meter2_draw_post);
-    s_hpBarsSupported = (res == MOD_OK);
-    return MOD_OK;
+    return mods::hook::add_post<Meter2DrawHook>(hook_svc, on_meter2_draw_post);
 }
 
 void shutdown_hp_bars() {
