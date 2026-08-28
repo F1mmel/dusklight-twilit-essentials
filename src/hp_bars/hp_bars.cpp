@@ -448,6 +448,11 @@ static void draw_damage_popups() {
 }
 
 static void on_meter2_draw_post(ModContext*, void*, void*, void*) {
+    if (!g_configHpBarsEnabled && !g_configDamageNumbersEnabled) {
+        s_damagePopups.clear();
+        return;
+    }
+
     if (dComIfGp_isPauseFlag() || dScnPly_c::isPause()) {
         return;
     }
@@ -467,7 +472,11 @@ static void on_meter2_draw_post(ModContext*, void*, void*, void*) {
         }
     }
 
-    draw_damage_popups();
+    if (g_configDamageNumbersEnabled) {
+        draw_damage_popups();
+    } else {
+        s_damagePopups.clear();
+    }
 }
 
 ModResult init_hp_bars(const HookService* hook_svc, ModError*) {

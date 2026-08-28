@@ -316,6 +316,11 @@ static void on_damage_numbers_changed(ModContext*, ConfigVarHandle, const Config
 
 static void on_custom_z_button_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
     if (value) {
+        if (isNativeZButtonEngine()) {
+            g_configCustomZButtonEnabled = false;
+            g_configZButtonEnabled = false;
+            return;
+        }
         g_configCustomZButtonEnabled = value->bool_value;
         g_configZButtonEnabled = value->bool_value;
         if (svc_log) {
@@ -711,6 +716,9 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
         descZ.default_bool = false;
         if (svc_config->register_var(mod_ctx, &descZ, &s_varCustomZButton) == MOD_OK) {
             svc_config->get_bool(mod_ctx, s_varCustomZButton, &g_configCustomZButtonEnabled);
+            if (isNativeZButtonEngine()) {
+                g_configCustomZButtonEnabled = false;
+            }
             g_configZButtonEnabled = g_configCustomZButtonEnabled;
             svc_config->subscribe(mod_ctx, s_varCustomZButton, on_custom_z_button_changed, nullptr, nullptr);
         }

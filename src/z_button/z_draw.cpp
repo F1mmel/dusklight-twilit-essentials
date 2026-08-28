@@ -491,7 +491,7 @@ HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, void*, v
     }
 
     dMeter2Draw_c* draw = mods::arg<dMeter2Draw_c*>(args, 0);
-    if (!g_configCustomZButtonEnabled) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine()) {
         if (draw != nullptr && draw->getMainScreenPtr() != nullptr) {
             J2DScreen* screen = draw->getMainScreenPtr();
             J2DPane* itemRPane = screen->search(MULTI_CHAR('r_itm_p'));
@@ -653,7 +653,7 @@ HookAction on_set_button_icon_alpha_pre(ModContext*, void* args, void*, void*) {
 }
 
 HookAction on_change_texture_item_xy_pre(ModContext*, void* args, void*, void*) {
-    if (!args) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args) {
         return HOOK_CONTINUE;
     }
 

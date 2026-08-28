@@ -36,7 +36,11 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
     if (!hook_svc)
         return MOD_OK;
 
-    // HUD and Item Wheel UI hooks (run on all builds, including native Z-button engines)
+    if (isNativeZButtonEngine()) {
+        return MOD_OK;
+    }
+
+    // HUD and Item Wheel UI hooks
     mods::hook::add_pre<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_pre);
     mods::hook::add_post<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_post);
     mods::hook::add_pre<MeterButtonDrawHook>(hook_svc, on_meter_button_draw_pre);
@@ -49,13 +53,6 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
 
     // Android / iOS touch Z-button icon
     z_mobile_init(hook_svc);
-
-    if (isNativeZButtonEngine()) {
-        if (log_svc) {
-            log_svc->info(mod_ctx, "Native 3-item / Z-button engine detected (Lazy Tweaks). Skipping custom low-level inventory hooks.");
-        }
-        return MOD_OK;
-    }
 
     mods::hook::add_post<PadReadHook>(hook_svc, on_pad_read_post);
     mods::hook::add_post<CheckStatusHook>(hook_svc, on_check_status_post);

@@ -539,18 +539,17 @@ static bool isTitleOrMainMenu() {
 }
 
 static void on_alink_draw_post(ModContext *, void *, void *, void *) {
-  daAlink_c *alink = static_cast<daAlink_c *>(dComIfGp_getPlayer(0));
-
-  if (!syncEquipmentModelCache(alink)) {
-    return;
-  }
-
   if (!g_configVisibleEquipmentEnabled || isTitleOrMainMenu()) {
     return;
   }
 
-  if (!alink->mpLinkModel || alink->mpLinkModel->getModelData() == nullptr ||
+  daAlink_c *alink = static_cast<daAlink_c *>(dComIfGp_getPlayer(0));
+  if (!alink || !alink->mpLinkModel || alink->mpLinkModel->getModelData() == nullptr ||
       isWolfOrTransforming(alink)) {
+    return;
+  }
+
+  if (!syncEquipmentModelCache(alink)) {
     return;
   }
 
