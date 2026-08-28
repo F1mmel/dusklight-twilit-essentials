@@ -1,5 +1,8 @@
 #include "collection_nav.hpp"
 
+#include "../z_button/z_button.hpp"
+#include "f_pc/f_pc_profile_lst.h"
+
 HookAction on_get_item_tag_pre(ModContext*, void* args, void* ret, void*) {
     if (!is_collection_menu_enabled() || !args || !ret) return HOOK_CONTINUE;
     int i_tag1 = mods::arg<int>(args, 1);
