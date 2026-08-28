@@ -43,10 +43,9 @@ extern bool isNativeZButtonEngine();
 
 // this is a helper function for finding the correct address of a member if it doesn't line up with the SDK
 template <typename T>
-const T &addressShift(const T &member) {                           // template because it accepts a param regardless of type
-  const u32 actualSize = g_profile_ALINK.base.base.process_size;   // size of daAlink_c on runtime
-  const size_t linkSize = sizeof(daAlink_c);                       // expected size based on dusklight's SDK
-
+const T &addressShift(const T &member) { // template because it accepts a param regardless of type
+  const u32 actualSize = g_profile_ALINK.base.base.process_size; // size of daAlink_c on runtime
+  const size_t linkSize = sizeof(daAlink_c); // expected size based on dusklight's SDK
   // shift by the difference between the actual size and the expected size
   const int shiftByThis = static_cast<int>(actualSize) - static_cast<int>(linkSize);
 
@@ -67,9 +66,6 @@ static u32 getLinkShadowId(daAlink_c *alink) {
   }
 
   const u8 *basePtr = reinterpret_cast<const u8 *>(&alink->field_0x31a4);
-  if (isNativeZButtonEngine()) {
-    return *reinterpret_cast<const u32 *>(basePtr + sizeof(daPy_anmHeap_c));
-  }
 
   return static_cast<u32>(alink->field_0x31a4);
 }
@@ -582,19 +578,8 @@ static void on_alink_draw_post(ModContext *, void *, void *, void *) {
   }
 
   bool shouldShowBow = g_configVisibleEquipShowBow && checkShouldShowBow();
-  bool isBowInHand = false;
-
-  if (isNativeZButtonEngine()) {
-    /** shift the address of the bow item by the address shift calculated by helper function addressShift();
-    this should fix the bow not correctly coming off of Link's back when the bow is drawn **/
-    const u16 shiftedItem = addressShift(alink->mEquipItem);
-    isBowInHand = alink->checkBowAndSlingItem(shiftedItem) ||
-                     shiftedItem == dItemNo_BOW_e;
-  }
-  else {
-    isBowInHand = alink->checkBowAndSlingItem(alink->mEquipItem) ||
-                     (alink->mEquipItem == dItemNo_BOW_e);
-  }
+  bool isBowInHand = alink->checkBowAndSlingItem(alink->mEquipItem) ||
+                   (alink->mEquipItem == dItemNo_BOW_e);
 
   if (shouldShowBow) {
     renderBow(alink, shouldShowBow, isBowInHand);

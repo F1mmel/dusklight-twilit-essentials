@@ -9,6 +9,7 @@
 #include "z_item_actions.cpp"
 #include "f_pc/f_pc_profile_lst.h"
 #include "z_draw.cpp"
+#include "f_pc/f_pc_profile_lst.h"
 
 bool isNativeZButtonEngine() {
     /** this should now more definitively check if mItemHeap is [2] or [3] by checking if the size of daAlink_c on
