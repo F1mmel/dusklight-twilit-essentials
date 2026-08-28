@@ -3,14 +3,6 @@
 #include "../z_button/z_button.hpp"
 #include "f_pc/f_pc_profile_lst.h"
 
-// another helper function, works a little bit differently this time though
-template <typename T>
-const T &shiftHIO(const T &member) {
-    // Return the amount of bytes to shift by only if on lazy tweaks, otherwise return 0 (shift by nothing)
-    int shiftByThis = isNativeZButtonEngine() ? 4 * static_cast<int>(sizeof(f32)) : 0;
-    return *reinterpret_cast<const T *>(reinterpret_cast<const u8 *>(&member) + shiftByThis);   // return the value to shift by after casting
-}
-
 HookAction on_get_item_tag_pre(ModContext*, void* args, void* ret, void*) {
     if (!is_collection_menu_enabled() || !args || !ret) return HOOK_CONTINUE;
     int i_tag1 = mods::arg<int>(args, 1);
@@ -72,10 +64,7 @@ HookAction on_cursor_pos_set_pre(ModContext*, void* args, void*, void*) {
     u8 curX = collect2D->mCursorX;
     u8 curY = collect2D->mCursorY;
 
-    const dMeter_drawCollectHIO_c &collectHIO = shiftHIO(g_drawHIO.mCollectScreen);
-
     // Scale all panes
-    // renamed usage of g_drawHIO to collectHIO pointer, will work regardless of branch
     for (u8 y = 0; y < 6; y++) {
         for (u8 x = 0; x < 7; x++) {
             J2DPane* pane = get_target_pane(collect2D, x, y);
@@ -83,18 +72,18 @@ HookAction on_cursor_pos_set_pre(ModContext*, void* args, void*, void*) {
                 if ((x != 0 || y != 0) && (x != 6 || y != 0)) {
                     if (y == 5) {
                         if (x == curX && y == curY) {
-                            pane->scale(collectHIO.mSelectSaveOptionScale,
-                                       collectHIO.mSelectSaveOptionScale);
+                            pane->scale(g_drawHIO.mCollectScreen.mSelectSaveOptionScale,
+                                       g_drawHIO.mCollectScreen.mSelectSaveOptionScale);
                         } else {
-                            pane->scale(collectHIO.mUnselectSaveOptionScale,
-                                       collectHIO.mUnselectSaveOptionScale);
+                            pane->scale(g_drawHIO.mCollectScreen.mUnselectSaveOptionScale,
+                                       g_drawHIO.mCollectScreen.mUnselectSaveOptionScale);
                         }
                     } else if (x == curX && y == curY) {
-                        pane->scale(collectHIO.mSelectItemScale,
-                                   collectHIO.mSelectItemScale);
+                        pane->scale(g_drawHIO.mCollectScreen.mSelectItemScale,
+                                   g_drawHIO.mCollectScreen.mSelectItemScale);
                     } else {
-                        pane->scale(collectHIO.mUnselectItemScale,
-                                   collectHIO.mUnselectItemScale);
+                        pane->scale(g_drawHIO.mCollectScreen.mUnselectItemScale,
+                                   g_drawHIO.mCollectScreen.mUnselectItemScale);
                     }
                 }
             }

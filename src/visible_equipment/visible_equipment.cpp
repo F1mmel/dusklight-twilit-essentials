@@ -41,18 +41,6 @@ inline s16 degToS16(f32 deg) {
 
 extern bool isNativeZButtonEngine();
 
-// this is a helper function for finding the correct address of a member if it doesn't line up with the SDK
-template <typename T>
-const T &addressShift(const T &member) { // template because it accepts a param regardless of type
-  const u32 actualSize = g_profile_ALINK.base.base.process_size; // size of daAlink_c on runtime
-  const size_t linkSize = sizeof(daAlink_c); // expected size based on dusklight's SDK
-  // shift by the difference between the actual size and the expected size
-  const int shiftByThis = static_cast<int>(actualSize) - static_cast<int>(linkSize);
-
-  // get a new pointer to the member by shifting the address of the member by the difference
-  return *reinterpret_cast<const T *>(reinterpret_cast<const u8 *>(&member) + shiftByThis);
-}
-
 static u32 getLinkShadowId(daAlink_c *alink) {
   if (alink == nullptr) {
     return 0;
