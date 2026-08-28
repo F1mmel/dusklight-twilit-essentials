@@ -14,6 +14,8 @@
 #include "d/d_s_play.h"
 #include "d/d_msg_object.h"
 #include "m_Do/m_Do_controller_pad.h"
+#include "JSystem/JKernel/JKRHeap.h"
+#include "JSystem/JKernel/JKRExpHeap.h"
 #include "JSystem/JUtility/JUTGamePad.h"
 #include "JSystem/J2DGraph/J2DScreen.h"
 #include "JSystem/J2DGraph/J2DPicture.h"
@@ -31,11 +33,18 @@
 #include <cstdio>
 #include <cstring>
 
+#if defined(__ANDROID__) || defined(TARGET_ANDROID) || \
+    (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE) || \
+    (defined(TARGET_OS_IOS) && TARGET_OS_IOS)
+#define Z_MOBILE_BUILD 1
+#else
+#define Z_MOBILE_BUILD 0
+#endif
+
 // Configuration flags
 extern bool g_configCustomZButtonEnabled;
 extern bool g_configZButtonEnabled;
 
-// Logger & Context
 extern const LogService* g_zLogSvc;
 extern ModContext* g_zModCtx;
 
@@ -77,6 +86,14 @@ void ensure_z_slot_initialized();
 void sync_z_item_state();
 u8 find_slot_for_item(u8 itemNo);
 bool is_bomb_item(u8 itemNo);
+extern bool g_zDimX;
+extern bool g_zDimY;
+bool z_items_dimmed();
+bool z_mobile_wants_midona_host();
+u8 z_item_icon_alpha();
+u8 z_button_base_alpha();
+bool z_item_is_lantern(u8 itemNo);
+bool z_item_ammo(u8 itemNo, int& count, int& maxCount);
 bool isWolfPlayer();
 bool isTitleOrMainMenu();
 bool isMidnaUnlocked();

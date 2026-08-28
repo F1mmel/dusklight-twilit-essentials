@@ -15,6 +15,7 @@
 #include "mods/svc/log.h"
 #include "../z_button/z_button.hpp"
 #include <cstdio>
+#include <cstring>
 
 static const LogService *s_logSvc = nullptr;
 static ModContext *s_modCtx = nullptr;
@@ -31,7 +32,6 @@ static J3DModel *s_customBowModel = nullptr;
 static J3DModel *s_customQuiverModel = nullptr;
 static int s_loadedQuiverType = 0;
 static J3DModel *s_customHorseCallModel = nullptr;
-static J3DModel *s_customLanternModel = nullptr;
 
 DEFINE_HOOK(&daAlink_c::draw, AlinkDrawHook);
 
@@ -97,8 +97,7 @@ static bool isWolfOrTransforming(daAlink_c *alink) {
 
 static MtxP getBoneMtx(daAlink_c *alink, const char *boneName) {
   if (alink == nullptr || alink->mpLinkModel == nullptr ||
-      boneName == nullptr || isWolfOrTransforming(alink) ||
-      alink->getClothesChangeWaitTimer() != 0) {
+      boneName == nullptr || isWolfOrTransforming(alink)) {
     return nullptr;
   }
 
@@ -215,6 +214,29 @@ static bool checkShouldShowHorseCall() {
           slot2 == 0x4F || slot0 == 0x84 || slot1 == 0x84 || slot2 == 0x84);
 }
 
+// Names each archive/index the first time we touch it, so a crash while probing
+// a resource is attributable from the log (the frame itself shows up as an
+// unresolved address inside the mod).
+static void logModelLoadOnce(const char *arcName, s16 bmdIndex) {
+  static const char *s_seen[8] = {};
+  static int s_seenCount = 0;
+
+  for (int i = 0; i < s_seenCount; i++) {
+    if (s_seen[i] == arcName) {
+      return;
+    }
+  }
+  if (s_seenCount < 8) {
+    s_seen[s_seenCount++] = arcName;
+  }
+  if (s_logSvc != nullptr && s_modCtx != nullptr) {
+    char buf[128];
+    std::snprintf(buf, sizeof(buf), "[VisibleEquip] probing model res '%s' idx 0x%04X", arcName,
+                  static_cast<unsigned>(bmdIndex));
+    s_logSvc->info(s_modCtx, buf);
+  }
+}
+
 // Helper to instantiate BMD models
 static J3DModel *loadBmdModel(J3DModel *&modelPtr, const char *arcName,
                               s16 bmdIndex, cXyz scale,
@@ -227,9 +249,13 @@ static J3DModel *loadBmdModel(J3DModel *&modelPtr, const char *arcName,
     return nullptr;
   }
 
+  // Link's own archive is already resident and owned by the player actor.
+  // Re-requesting it through setObjectRes hands back a resource whose model data
+  // is not populated, so every later access -- including any attempt to validate
+  // it -- dereferences garbage. Only load archives we don't already have.
   daAlink_c *alink = static_cast<daAlink_c *>(dComIfGp_getPlayer(0));
-  bool isLinkArc = (alink != nullptr && alink->mArcName != nullptr && std::strcmp(arcName, alink->mArcName) == 0);
-
+  const bool isLinkArc = alink != nullptr && alink->mArcName != nullptr &&
+                         std::strcmp(arcName, alink->mArcName) == 0;
   if (!isLinkArc) {
     dComIfG_setObjectRes(arcName, 0, nullptr);
     if (dComIfG_syncObjectRes(arcName) != 0) {
@@ -239,15 +265,29 @@ static J3DModel *loadBmdModel(J3DModel *&modelPtr, const char *arcName,
 
   void *resPtr = isObjectID ? dComIfG_getObjectIDRes(arcName, bmdIndex)
                             : dComIfG_getObjectRes(arcName, bmdIndex);
-  if (resPtr != nullptr) {
-    J3DModelData *modelData = static_cast<J3DModelData *>(resPtr);
-    if (modelData != nullptr && modelData->getShapeTable() != nullptr &&
-        modelData->getMaterialNum() > 0 && modelData->getMaterialNodePointer(0) != nullptr) {
-      modelPtr = mDoExt_J3DModel__create(modelData, 0x80000, 0x11000084);
-      if (modelPtr != nullptr) {
-        modelPtr->setBaseScale(scale);
-      }
-    }
+  if (resPtr == nullptr) {
+    return nullptr;
+  }
+
+  logModelLoadOnce(arcName, bmdIndex);
+
+  // The resource can be present but not yet populated. mDoExt_J3DModel__create
+  // walks the material table unconditionally, so an empty one crashes inside
+  // J3DMaterialTable::getMaterialNodePointer. Check the counts first: they are
+  // plain members, whereas getMaterialNodePointer() indexes a pointer array and
+  // would fault itself on an empty table. getShapeTable() returns the address of
+  // a member and is never null, so it cannot stand in for these checks.
+  // Bailing here just means we retry on the next frame.
+  J3DModelData *modelData = static_cast<J3DModelData *>(resPtr);
+  if (modelData->getMaterialNum() == 0 || modelData->getShapeTable() == nullptr ||
+      modelData->getShapeTable()->getShapeNum() == 0 ||
+      modelData->getMaterialNodePointer(0) == nullptr) {
+    return nullptr;
+  }
+
+  modelPtr = mDoExt_J3DModel__create(modelData, 0x80000, 0x11000084);
+  if (modelPtr != nullptr) {
+    modelPtr->setBaseScale(scale);
   }
 
   return modelPtr;
@@ -295,104 +335,30 @@ static void loadHorseCallModel(const LogService *, ModContext *) {
   }
 }
 
-static void loadLanternModel(const LogService *, ModContext *) {
-  daAlink_c *alink = static_cast<daAlink_c *>(dComIfGp_getPlayer(0));
-  if (alink == nullptr || alink->mArcName == nullptr || alink->getClothesChangeWaitTimer() != 0) {
-    return;
-  }
-  loadBmdModel(s_customLanternModel, alink->mArcName, 0x0006, cXyz(1.0f, 1.0f, 1.0f));
-}
-
-// Lantern physics
-static cXyz s_veLanternFlamePos;
-static cXyz s_veLanternVelocity;
-static cXyz s_veLanternPrevPos;
-static cXyz s_veLanternPrevPos2;
-static bool s_veLanternCallbackRegistered = false;
-
-// Lantern joint callback
-static int visibleLanternJointCallback(J3DJoint *i_joint, int param_1) {
-  UNUSED(i_joint);
-
-  if (param_1 != 0) {
-    return 1;
-  }
-
-  if (s_customLanternModel == nullptr) {
-    return 1;
-  }
-
-  J3DModel *currentModel = j3dSys.getModel();
-  if (currentModel != s_customLanternModel) {
-    return 1;
-  }
-
-  daAlink_c *alink = static_cast<daAlink_c *>(dComIfGp_getPlayer(0));
-  if (alink == nullptr || isWolfOrTransforming(alink)) {
-    return 1;
-  }
-
-  cXyz pivotPos;
-  mDoMtx_multVecZero(J3DSys::mCurrentMtx, &pivotPos);
-
-  s_veLanternPrevPos2 = s_veLanternPrevPos;
-  s_veLanternPrevPos = s_veLanternFlamePos;
-
-  cXyz relPos = (s_veLanternFlamePos - pivotPos) + s_veLanternVelocity;
-  relPos.y -= 3.0f;
-
-  cXyz fwd;
-  mDoMtx_multVec(J3DSys::mCurrentMtx, &cXyz::BaseZ, &fwd);
-
-  s16 yawAngle = fwd.atan2sX_Z();
-  mDoMtx_stack_c::YrotS(-yawAngle);
-  mDoMtx_stack_c::multVec(&relPos, &relPos);
-
-  s16 swingX =
-      cLib_minMaxLimit<s16>(cM_atan2s(-relPos.z, -relPos.y), -0x1800, 0x1800);
-  s16 swingZ = cLib_minMaxLimit<s16>(
-      cM_atan2s(relPos.x, JMAFastSqrt(SQUARE(relPos.y) + SQUARE(relPos.z))),
-      -0x1800, 0x1800);
-
-  mDoMtx_stack_c::transS(pivotPos);
-  mDoMtx_stack_c::ZXYrotM(swingX, yawAngle, swingZ);
-
-  static Vec const lanternTipOffset = {0.0f, -17.0f, 0.0f};
-  mDoMtx_stack_c::multVec(&lanternTipOffset, &s_veLanternFlamePos);
-
-  s_veLanternVelocity = (s_veLanternFlamePos - s_veLanternPrevPos) * 0.9f;
-
-  f32 scale = JMAFastSqrt(SQUARE(J3DSys::mCurrentMtx[0][0]) +
-                          SQUARE(J3DSys::mCurrentMtx[1][0]) +
-                          SQUARE(J3DSys::mCurrentMtx[2][0]));
-  mDoMtx_stack_c::transS(J3DSys::mCurrentMtx[0][3], J3DSys::mCurrentMtx[1][3],
-                         J3DSys::mCurrentMtx[2][3]);
-  mDoMtx_stack_c::ZXYrotM(swingX, yawAngle, swingZ);
-  mDoMtx_stack_c::scaleM(scale, scale, scale);
-
-  if (s_customLanternModel != nullptr) {
-    s_customLanternModel->setAnmMtx(1, mDoMtx_stack_c::get());
-  }
-  cMtx_copy(mDoMtx_stack_c::get(), J3DSys::mCurrentMtx);
-
-  return 1;
-}
-
 static void renderLantern(daAlink_c *alink) {
-  if (s_customLanternModel == nullptr || alink == nullptr ||
-      isWolfOrTransforming(alink)) {
+  if (alink == nullptr || isWolfOrTransforming(alink) ||
+      alink->mpKanteraModel == nullptr) {
     return;
   }
 
-  // Skip if active lantern is out
-  if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
-      alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
-      alink->mEquipItem == dItemNo_KANTERA_e) {
-    s_veLanternCallbackRegistered = false;
-    return;
+  // Skip if active lantern is out (vanilla game handles model, light, and physics)
+  if (isNativeZButtonEngine()) {
+    const u16 shiftedItem = addressShift(alink->mEquipItem);
+    if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
+        alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
+        shiftedItem == dItemNo_KANTERA_e) {
+      return;
+    }
+  } else {
+    if (alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x1)) ||
+        alink->checkNoResetFlg2(static_cast<daPy_py_c::daPy_FLG2>(0x20000)) ||
+        alink->mEquipItem == dItemNo_KANTERA_e) {
+      return;
+    }
   }
 
-  if (alink->mpLinkModel == nullptr) {
+  if (alink->mpLinkModel == nullptr ||
+      alink->getClothesChangeWaitTimer() != 0) {
     return;
   }
 
@@ -404,37 +370,28 @@ static void renderLantern(daAlink_c *alink) {
     mDoMtx_stack_c::copy(beltMtx);
     mDoMtx_stack_c::transM(-1.0f, 4.5f, 9.0f);
     mDoMtx_stack_c::XYZrotM(cM_deg2s(-75.0f), cM_deg2s(62.0f), cM_deg2s(89.0f));
-    s_customLanternModel->setBaseTRMtx(mDoMtx_stack_c::get());
+    alink->mpKanteraModel->setBaseTRMtx(mDoMtx_stack_c::get());
 
-    J3DModelData *mData = s_customLanternModel->getModelData();
-    if (mData != nullptr && mData->getJointNodePointer(1) != nullptr) {
-      mData->getJointNodePointer(1)->setCallBack(visibleLanternJointCallback);
+    cXyz &flamePos = isNativeZButtonEngine()
+                         ? const_cast<cXyz &>(addressShift(alink->mKandelaarFlamePos))
+                         : alink->mKandelaarFlamePos;
+    if (flamePos.abs2() < 1.0f) {
+      mDoMtx_multVecZero(mDoMtx_stack_c::get(), &flamePos);
+      flamePos.y -= 17.0f;
     }
 
-    if (!s_veLanternCallbackRegistered) {
-      static Vec const lanternTipOffset = {0.0f, -17.0f, 0.0f};
-      mDoMtx_multVec(mDoMtx_stack_c::get(), &lanternTipOffset,
-                     &s_veLanternFlamePos);
-      s_veLanternPrevPos = s_veLanternFlamePos;
-      s_veLanternPrevPos2 = s_veLanternFlamePos;
-      s_veLanternVelocity = cXyz(0.0f, 0.0f, 0.0f);
-      s_veLanternCallbackRegistered = true;
-    }
-
-    s_customLanternModel->setUserArea(reinterpret_cast<uintptr_t>(alink));
-    s_customLanternModel->calc();
+    alink->mpKanteraModel->calc();
 
     g_env_light.settingTevStruct_colget_player(&alink->tevStr);
-    g_env_light.setLightTevColorType_MAJI(s_customLanternModel, &alink->tevStr);
-    mDoExt_modelUpdateDL(s_customLanternModel);
-    addModelShadow(alink, s_customLanternModel);
+    g_env_light.setLightTevColorType_MAJI(alink->mpKanteraModel, &alink->tevStr);
+    mDoExt_modelUpdateDL(alink->mpKanteraModel);
+    addModelShadow(alink, alink->mpKanteraModel);
   }
 }
 
 static void renderBow(daAlink_c *alink, bool shouldShowEquipment,
                       bool isBowInHand) {
-  if (!shouldShowEquipment || isBowInHand || s_customBowModel == nullptr ||
-      alink == nullptr || alink->mSheathModel == nullptr) {
+  if (!shouldShowEquipment || isBowInHand || s_customBowModel == nullptr) {
     return;
   }
 
@@ -554,8 +511,6 @@ static void invalidateEquipmentModels() {
   s_customQuiverModel = nullptr;
   s_loadedQuiverType = 0;
   s_customHorseCallModel = nullptr;
-  s_customLanternModel = nullptr;
-  s_veLanternCallbackRegistered = false;
 }
 
 // Returns false while Link's archive is being torn down or reloaded, in which
@@ -563,6 +518,11 @@ static void invalidateEquipmentModels() {
 static bool syncEquipmentModelCache(daAlink_c *alink) {
   if (alink == nullptr || alink->getClothesChangeWaitTimer() != 0) {
     invalidateEquipmentModels();
+    s_cachedLinkInstance = nullptr;
+    s_cachedLinkModel = nullptr;
+    s_cachedArcName = nullptr;
+    s_cachedStageName[0] = '\0';
+    s_cachedRoomNo = -1;
     return false;
   }
 
@@ -613,7 +573,7 @@ static void on_alink_draw_post(ModContext *, void *, void *, void *) {
   }
 
   if (!alink->mpLinkModel || alink->mpLinkModel->getModelData() == nullptr ||
-      isWolfOrTransforming(alink) || alink->getClothesChangeWaitTimer() != 0) {
+      isWolfOrTransforming(alink)) {
     return;
   }
 
@@ -657,7 +617,7 @@ void update_visible_equipment(const LogService *log_svc, ModContext *mod_ctx) {
     return;
   }
 
-  if (!alink->mpLinkModel || isWolfOrTransforming(alink) || alink->getClothesChangeWaitTimer() != 0) {
+  if (!alink->mpLinkModel || isWolfOrTransforming(alink)) {
     return;
   }
 
@@ -668,9 +628,6 @@ void update_visible_equipment(const LogService *log_svc, ModContext *mod_ctx) {
 
   if (g_configVisibleEquipShowHorseCall && checkShouldShowHorseCall()) {
     loadHorseCallModel(log_svc, mod_ctx);
-  }
-  if (g_configVisibleEquipShowLantern && checkShouldShowLantern()) {
-    loadLanternModel(log_svc, mod_ctx);
   }
 }
 

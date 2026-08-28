@@ -18,6 +18,7 @@ void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f32 iconW
 void on_meter2_draw_draw_post(ModContext* mod_ctx, void* args, void* ret, void* user_data);
 void on_draw_button_z_post(ModContext* mod_ctx, void* args, void* ret, void* user_data);
 HookAction on_set_button_icon_midona_alpha_pre(ModContext* mod_ctx, void* args, void* ret, void* user_data);
+void on_set_button_icon_midona_alpha_post(ModContext* mod_ctx, void* args, void* ret, void* user_data);
 HookAction on_set_button_icon_alpha_pre(ModContext* mod_ctx, void* args, void* ret, void* user_data);
 HookAction on_change_texture_item_xy_pre(ModContext* mod_ctx, void* args, void* ret, void* user_data);
 void on_move_button_xy_post(ModContext* mod_ctx, void* args, void* ret, void* user_data);

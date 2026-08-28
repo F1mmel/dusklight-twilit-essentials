@@ -1,6 +1,7 @@
 #pragma once
 
 #include "midna_location.hpp"
+#include "z_mobile.hpp"
 
 DEFINE_HOOK(&dMeterButton_c::_execute, MeterButtonExecuteHook);
 
@@ -11,6 +12,19 @@ void update_midna_pane(dMeter2Draw_c* draw) {
 
     J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
     if (midnaPane == nullptr) return;
+
+    // While the mobile fallback borrows `midona_n` to mirror the Z item onto the
+    // touch button, leave that pane alone
+    if (z_mobile_wants_midona_host()) {
+        if (g_configCustomZButtonEnabled) {
+            J2DPane* z_btnl_hosted = screen->search(MULTI_CHAR('z_btnl'));
+            if (z_btnl_hosted) {
+                z_btnl_hosted->hide();
+                z_btnl_hosted->setAlpha(0);
+            }
+        }
+        return;
+    }
 
     if (is_pause_menu_open(draw) || !isMidnaUnlocked()) {
         midnaPane->hide();
@@ -88,12 +102,17 @@ static ResTIMG* get_dpad_left_texture() {
 }
 
 static const ResTIMG* s_origZbtnTex = nullptr;
+static const ResTIMG* s_origZbtnlTex = nullptr;
 static JUtility::TColor s_origBlack(0, 0, 0, 0);
-static JUtility::TColor s_origWhite(255, 255, 255, 255);
+static JUtility::TColor s_origWhite(40, 90, 160, 255);
 static bool s_hasOrigProps = false;
 
 const ResTIMG* get_orig_z_button_texture() {
     return s_origZbtnTex;
+}
+
+const ResTIMG* get_orig_z_text_texture() {
+    return s_origZbtnlTex;
 }
 
 JUtility::TColor get_orig_z_button_black() { return s_origBlack; }
@@ -106,7 +125,11 @@ static void update_custom_z_button_prompt(dMeterButton_c* meterButton) {
     J2DPicture* zbtnPic = static_cast<J2DPicture*>(buttonScreen->search('zbtn'));
     J2DPane* zbtn_n = buttonScreen->search(MULTI_CHAR('zbtn_n'));
     J2DPane* midonaPane = buttonScreen->search(MULTI_CHAR('midona'));
-    J2DPane* z_btnl = buttonScreen->search(MULTI_CHAR('z_btnl'));
+    J2DPicture* z_btnl = static_cast<J2DPicture*>(buttonScreen->search(MULTI_CHAR('z_btnl')));
+
+    if (z_btnl && !s_origZbtnlTex && z_btnl->getTexture(0)) {
+        s_origZbtnlTex = z_btnl->getTexture(0)->getTexInfo();
+    }
 
     if (zbtnPic) {
         if (!s_origZbtnTex && zbtnPic->getTexture(0)) {
@@ -165,4 +188,13 @@ void on_meter_button_execute_post(ModContext*, void* args, void*, void*) {
     if (isTitleOrMainMenu() || !args) return;
     dMeterButton_c* meterButton = mods::arg<dMeterButton_c*>(args, 0);
     update_custom_z_button_prompt(meterButton);
+}
+
+DEFINE_HOOK(&dMeterButton_c::draw, MeterButtonDrawHook);
+
+HookAction on_meter_button_draw_pre(ModContext*, void* args, void*, void*) {
+    if (isTitleOrMainMenu() || !args) return HOOK_CONTINUE;
+    dMeterButton_c* meterButton = mods::arg<dMeterButton_c*>(args, 0);
+    update_custom_z_button_prompt(meterButton);
+    return HOOK_CONTINUE;
 }

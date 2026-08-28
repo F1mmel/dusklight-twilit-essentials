@@ -1,6 +1,7 @@
 #pragma once
 
 #include "z_item_actions.hpp"
+#include "z_mobile.hpp"
 #include "../sheathed_spin/sheathed_spin.hpp"
 #include "m_Do/m_Do_audio.h"
 
@@ -15,8 +16,9 @@ bool item_needs_z_valid_button(int itemNo) {
     return itemNo == dItemNo_HVY_BOOTS_e || itemNo == dItemNo_SPINNER_e;
 }
 
-HookAction on_set_heavy_boots_pre(ModContext*, void*, void*, void*) {
-    return HOOK_CONTINUE;
+HookAction on_set_heavy_boots_pre(ModContext*, void* args, void* ret, void*) {
+    // Real logic is mobile-only (no-op / HOOK_CONTINUE on desktop).
+    return z_mobile_guard_heavy_boots(args, ret);
 }
 
 HookAction on_check_item_change_from_button_pre(ModContext*, void* args, void* retval, void*) {
@@ -77,6 +79,12 @@ HookAction on_check_item_change_from_button_pre(ModContext*, void* args, void* r
 
                 const int procType = link->checkNewItemChange(i);
                 if (procType != 0 && link->itemTriggerCheck(1 << i)) {
+                    if (i == 2 && link->checkGroupItem(dItemNo_HVY_BOOTS_e, resolved_select_item(i))) {
+                        if (z_mobile_hb_locked(link)) {
+                            continue;
+                        }
+                        z_mobile_hb_lock(link, link->checkEquipHeavyBoots());  // no-op on desktop
+                    }
                     result = link->changeItemTriggerKeepProc(i, procType);
                     *static_cast<BOOL*>(retval) = result;
                     return HOOK_SKIP_ORIGINAL;
@@ -179,12 +187,19 @@ HookAction on_check_set_item_trigger_pre(ModContext*, void* args, void* retval, 
 
         if (itemNo == dItemNo_HVY_BOOTS_e && i == 2) {
             if (link->checkEquipHeavyBoots()) {
+                // mobile: same press still being handled -> ignore
+                if (z_mobile_hb_locked(link)) {
+                    *static_cast<int*>(retval) = 0;
+                    return HOOK_SKIP_ORIGINAL;
+                }
                 if (link->checkNewItemChange(2) == 1) {
+                    z_mobile_hb_lock(link, true);  // no-op on desktop
                     link->changeItemTriggerKeepProc(2, 1);
                 }
                 *static_cast<int*>(retval) = 0;
                 return HOOK_SKIP_ORIGINAL;
             }
+            z_mobile_hb_lock(link, false);  // no-op on desktop
         } else {
             link->mSelectItemId = i;
         }

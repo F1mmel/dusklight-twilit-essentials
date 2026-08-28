@@ -130,6 +130,70 @@ bool is_bomb_item(u8 itemNo) {
     return itemNo == 0x4F || itemNo == 0x50 || itemNo == 0x51 || itemNo == 0x70 || itemNo == 0x71 || itemNo == 0x72;
 }
 
+bool g_zDimX = false;
+bool g_zDimY = false;
+
+bool z_items_dimmed() {
+    if (dMeter2Info_getWindowStatus() == 2) {
+        return false;
+    }
+    // Items are only dimmed when Link cannot use ANY items (dialog, swimming, carrying, etc.)
+    // If either X or Y is usable (e.g. aiming bow on one button while the other remains usable),
+    // then items are active and the Z item must NOT be dimmed!
+    return !dMeter2Info_isUseButton(METER2_USEBUTTON_X) && !dMeter2Info_isUseButton(METER2_USEBUTTON_Y);
+}
+
+u8 z_item_icon_alpha() {
+    // On the mobile capture path this alpha is baked into the touch button's icon
+    // texture. Dusklight's own X/Y touch icons never grey out, so keep it opaque.
+    if (z_mobile_wants_midona_host()) {
+        return 255;
+    }
+    return z_items_dimmed() ? g_drawHIO.mButtonXYItemDimAlpha : 255;
+}
+
+u8 z_button_base_alpha() {
+    return z_items_dimmed() ? g_drawHIO.mButtonXYBaseDimAlpha : 255;
+}
+
+bool z_item_is_lantern(u8 itemNo) {
+    return itemNo == dItemNo_KANTERA_e || itemNo == dItemNo_KANTERA2_e;
+}
+
+bool z_item_ammo(u8 itemNo, int& count, int& maxCount) {
+    count = -1;
+    maxCount = -1;
+
+    // Bomb arrow / bombs: the count comes from the equipped bomb bag
+    if (itemNo == dItemNo_BOMB_ARROW_e || itemNo == 0x59 || is_bomb_item(itemNo)) {
+        u8 bombSlot = dComIfGs_getSelectMixItemNoArrowIndex(2);
+        u8 bagIdx = (bombSlot >= 15 && bombSlot < 18) ? (bombSlot - 15) : 0;
+        u8 bombType = dComIfGs_getItem((u8)(bagIdx + 15), false);
+        count = dComIfGs_getBombNum(bagIdx);
+        maxCount = dComIfGs_getBombMax(bombType);
+    }
+    // Bow / arrows
+    else if (itemNo == dItemNo_BOW_e || itemNo == dItemNo_HAWK_ARROW_e || itemNo == 0x43 ||
+             itemNo == 0x53 || itemNo == 0x54 || itemNo == 0x55 || itemNo == 0x56 || itemNo == 0x5A) {
+        count = dComIfGs_getArrowNum();
+        maxCount = dComIfGs_getArrowMax();
+    }
+    // Slingshot
+    else if (itemNo == 0x4B || itemNo == 0x76) {
+        count = dComIfGs_getPachinkoNum();
+        maxCount = dComIfGs_getPachinkoMax();
+    }
+    // Bee larva bottle
+    else if (itemNo == dItemNo_BEE_CHILD_e || itemNo == dItemNo_BEE_ROD_e) {
+        u8 bottleSlot = dComIfGs_getSelectItemIndex(2);
+        u8 bottleIdx = (bottleSlot >= 11 && bottleSlot < 15) ? (bottleSlot - 11) : 0;
+        count = dComIfGs_getBottleNum(bottleIdx);
+        maxCount = 10;
+    }
+
+    return count >= 0;
+}
+
 bool isWolfPlayer() {
     daPy_py_c* player = daPy_getLinkPlayerActorClass();
     return player != nullptr && player->checkWolf();
@@ -178,6 +242,7 @@ bool is_pause_menu_open(dMeter2Draw_c* draw) {
     if (g_meter2_info.getPauseStatus() != 0) return true;
     if (winStatus != 0) return true;
 
+#if !Z_MOBILE_BUILD
     if (draw == nullptr && g_meter2_info.getMeterClass() != nullptr) {
         draw = g_meter2_info.getMeterClass()->getMeterDrawPtr();
     }
@@ -188,6 +253,9 @@ bool is_pause_menu_open(dMeter2Draw_c* draw) {
             return true;
         }
     }
+#else
+    (void)draw;
+#endif
     return false;
 }
 

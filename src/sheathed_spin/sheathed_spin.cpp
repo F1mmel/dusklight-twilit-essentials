@@ -53,7 +53,6 @@ static HookAction on_check_item_action_pre(ModContext*, void* args, void* retval
             if (is_spin_triggered(link)) {
                 link->swordEquip(TRUE);
                 link->setSwordModel();
-                mDoAud_seStart(Z2SE_AL_SWORD_PULLOUT, NULL, 0, 0);
 
                 BOOL result = FALSE;
                 if (link->checkBoardRide()) {
