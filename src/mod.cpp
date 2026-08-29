@@ -15,6 +15,7 @@
 #include "mods/svc/ui.h"
 #include "mods/svc/resource.h"
 #include "mods/svc/texture.h"
+#include "mods/svc/host.h"
 
 #include "d/actor/d_a_title.h"
 #include "d/d_com_inf_game.h"
@@ -181,6 +182,7 @@ IMPORT_OPTIONAL_SERVICE(ConfigService, svc_config);
 IMPORT_OPTIONAL_SERVICE(UiService, svc_ui);
 IMPORT_OPTIONAL_SERVICE(ResourceService, svc_resource);
 IMPORT_OPTIONAL_SERVICE(TextureService, svc_texture);
+IMPORT_OPTIONAL_SERVICE(HostService, svc_host);
 
 // Prevent dead-stripping of mod exports
 extern "C" MOD_EXPORT const void* const g_keep_mod_records[] = {
@@ -191,6 +193,7 @@ extern "C" MOD_EXPORT const void* const g_keep_mod_records[] = {
     &mod_meta_import_svc_ui,
     &mod_meta_import_svc_resource,
     &mod_meta_import_svc_texture,
+    &mod_meta_import_svc_host,
 };
 
 static ConfigVarHandle s_varHpBars = 0;
@@ -836,7 +839,7 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     init_horse_call(svc_hook, error);
     init_sheathed_spin(svc_hook);
     init_puppet_zelda_pattern(svc_hook, error);
-    init_update_service(svc_log, mod_ctx, svc_ui, svc_config, s_varCheckForUpdates);
+    init_update_service(svc_log, mod_ctx, svc_ui, svc_config, svc_host, s_varCheckForUpdates);
     init_collection_menu(svc_hook, svc_log, mod_ctx, error);
 
     s_titleModActive = true;
