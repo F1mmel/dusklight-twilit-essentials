@@ -830,23 +830,61 @@ HookAction on_set_select_item_pre(ModContext*, void* args, void*, void*) {
             -1
         );
         texScale = dItem_data::getTexScale(i_itemNo) / 100.0f;
-    }
-    if (ring->mpSelectItemTexBuf[i_idx][ring->field_0x6be[i_idx]][0] != nullptr) {
-        ring->field_0x548[i_idx] = ring->mpSelectItemTexBuf[i_idx][ring->field_0x6be[i_idx]][0]->width / 48.0f * texScale;
-        ring->field_0x558[i_idx] = ring->mpSelectItemTexBuf[i_idx][ring->field_0x6be[i_idx]][0]->height / 48.0f * texScale;
+
+        if (ring->mpSelectItemTexBuf[i_idx][ring->field_0x6be[i_idx]][0] != nullptr) {
+            ring->field_0x548[i_idx] = ring->mpSelectItemTexBuf[i_idx][ring->field_0x6be[i_idx]][0]->width / 48.0f * texScale;
+            ring->field_0x558[i_idx] = ring->mpSelectItemTexBuf[i_idx][ring->field_0x6be[i_idx]][0]->height / 48.0f * texScale;
+        }
+    } else {
+        ring->field_0x686[i_idx] = 0;
+        ring->field_0x548[i_idx] = 0.0f;
+        ring->field_0x558[i_idx] = 0.0f;
     }
     return HOOK_SKIP_ORIGINAL;
 }
 
+struct RingZButtonPrompt {
+    dMenu_Ring_c* ring = nullptr;
+    J2DScreen* screen = nullptr;
+    CPaneMgr* button = nullptr;
+};
+
+static RingZButtonPrompt s_ringZPrompt;
+
+static void hide_pane_tree(J2DPane* pane) {
+    if (pane == nullptr) return;
+    pane->hide();
+    for (J2DPane* child = pane->getFirstChildPane(); child != nullptr; child = child->getNextChildPane()) {
+        hide_pane_tree(child);
+    }
+}
+
+static void show_pane_tree(J2DPane* pane) {
+    if (pane == nullptr) return;
+    pane->show();
+    for (J2DPane* child = pane->getFirstChildPane(); child != nullptr; child = child->getNextChildPane()) {
+        show_pane_tree(child);
+    }
+}
+
+static void show_pane_parents(J2DPane* pane) {
+    for (J2DPane* parent = pane; parent != nullptr; parent = parent->getParentPane()) {
+        parent->show();
+    }
+}
+
+static void clear_ring_z_prompt_refs() {
+    s_ringZPrompt.button = nullptr;
+    s_ringZPrompt.screen = nullptr;
+    s_ringZPrompt.ring = nullptr;
+}
+
 static bool s_guidePosAdjusted = false;
 static constexpr f32 kItemWheelPromptXOffset = -15.0f;
-static J2DPicture* s_ringZBasePic = nullptr;
-static J2DPicture* s_ringZTextPic = nullptr;
 
 void reset_ring_z_prompt() {
+    clear_ring_z_prompt_refs();
     s_guidePosAdjusted = false;
-    s_ringZBasePic = nullptr;
-    s_ringZTextPic = nullptr;
 }
 
 static void apply_item_wheel_centering(dMenu_Ring_c* ring) {
@@ -865,49 +903,79 @@ static void apply_item_wheel_centering(dMenu_Ring_c* ring) {
     }
 }
 
+static void destroy_ring_z_prompt(dMenu_Ring_c* ring) {
+    if (s_ringZPrompt.ring != ring) return;
+    // The ring menu owns this heap lifetime; keep only per-menu references here.
+    clear_ring_z_prompt_refs();
+}
+
+static void create_ring_z_prompt(dMenu_Ring_c* ring) {
+    clear_ring_z_prompt_refs();
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || ring == nullptr || ring->mPlayerIsWolf || ring->mpScreen == nullptr) {
+        return;
+    }
+
+    apply_item_wheel_centering(ring);
+
+    auto* archive = dComIfGp_getMain2DArchive();
+    if (archive == nullptr) return;
+
+    J2DPane* anchor = ring->mpScreen->search(MULTI_CHAR('r_btn_n'));
+    if (anchor != nullptr) {
+        anchor->translate(anchor->getTranslateX() + 64.0f, anchor->getTranslateY());
+        anchor->hide();
+    }
+
+    J2DScreen* screen = JKR_NEW J2DScreen();
+    if (screen == nullptr) return;
+    if (!screen->setPriority("zelda_game_image.blo", 0x20000, archive)) {
+        JKR_DELETE(screen);
+        return;
+    }
+
+    dPaneClass_showNullPane(screen);
+    hide_pane_tree(screen->search('ROOT'));
+
+    J2DPane* zButtonPane = screen->search(MULTI_CHAR('zbtn_n'));
+    if (zButtonPane == nullptr) {
+        JKR_DELETE(screen);
+        return;
+    }
+
+    show_pane_parents(zButtonPane);
+    show_pane_tree(zButtonPane);
+
+    CPaneMgr* button = JKR_NEW CPaneMgr(screen, MULTI_CHAR('zbtn_n'), 2, nullptr);
+    if (button == nullptr) {
+        JKR_DELETE(screen);
+        return;
+    }
+
+    button->setAlphaRate(1.0f);
+    button->show();
+    s_ringZPrompt = {.ring = ring, .screen = screen, .button = button};
+}
+
 static void draw_ring_z_prompt(dMenu_Ring_c* ring) {
-    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || ring == nullptr || ring->mpScreen == nullptr || ring->mPlayerIsWolf) {
+    if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() ||
+        s_ringZPrompt.ring != ring ||
+        s_ringZPrompt.screen == nullptr || s_ringZPrompt.button == nullptr ||
+        ring == nullptr || ring->mpScreen == nullptr || ring->mPlayerIsWolf)
+    {
+        return;
+    }
+
+    if (ring->mStatus == dMenu_Ring_c::STATUS_EXPLAIN ||
+        ring->mStatus == dMenu_Ring_c::STATUS_EXPLAIN_FORCE ||
+        ring->mpItemExplain == nullptr || ring->mpItemExplain->getStatus() != 0)
+    {
         return;
     }
 
     apply_item_wheel_centering(ring);
 
     J2DPane* anchor = ring->mpScreen->search(MULTI_CHAR('r_btn_n'));
-    if (anchor == nullptr) {
-        return;
-    }
-
-    JKRArchive* arc = dComIfGp_getMain2DArchive();
-    if (!arc) return;
-
-    if (s_ringZBasePic == nullptr || s_ringZTextPic == nullptr) {
-        JKRExpHeap* heap2D = dComIfGp_getExpHeap2D();
-        JKRHeap* oldHeap = (heap2D != nullptr) ? mDoExt_setCurrentHeap(heap2D) : nullptr;
-        s_ringZBasePic = JKR_NEW J2DPicture();
-        s_ringZTextPic = JKR_NEW J2DPicture();
-        if (oldHeap != nullptr) {
-            mDoExt_setCurrentHeap(oldHeap);
-        }
-    }
-
-    if (!s_ringZBasePic || !s_ringZTextPic) return;
-
-    const ResTIMG* baseTex = get_orig_z_button_texture();
-    if (!baseTex) {
-        baseTex = (ResTIMG*)arc->getResource('TIMG', "im_zelda_button_z_base.bti");
-        if (!baseTex) baseTex = (ResTIMG*)arc->getResource("im_zelda_button_z_base.bti");
-    }
-
-    const ResTIMG* textTex = get_orig_z_text_texture();
-    if (!textTex) {
-        textTex = (ResTIMG*)arc->getResource('TIMG', "im_zelda_button_z_text.bti");
-        if (!textTex) textTex = (ResTIMG*)arc->getResource("im_zelda_button_z_text.bti");
-    }
-
-    if (!baseTex || !textTex) return;
-
-    s_ringZBasePic->changeTexture(baseTex, 0);
-    s_ringZTextPic->changeTexture(textTex, 0);
+    if (anchor == nullptr) return;
 
     CPaneMgr paneMgr;
     Vec pos = paneMgr.getGlobalVtxCenter(anchor, true, 0);
@@ -916,41 +984,24 @@ static void draw_ring_z_prompt(dMenu_Ring_c* ring) {
     pos.x += 5.0f;
     pos.y -= 5.0f;
 
-    f32 scale = 0.9f;
-    f32 w = 24.0f * scale;
-    f32 h = 24.0f * scale;
-    if (baseTex->width > 0 && baseTex->height > 0) {
-        w = baseTex->width * scale;
-        h = baseTex->height * scale;
-    }
-
-    f32 drawX = pos.x - (w * 0.5f);
-    f32 drawY = pos.y - (h * 0.5f);
-
-    u8 a = (u8)(ring->mAlphaRate * 255.0f);
-    s_ringZBasePic->setBlackWhite(get_orig_z_button_black(), get_orig_z_button_white());
-    s_ringZBasePic->setAlpha(a);
-    s_ringZTextPic->setAlpha(a);
-
-    s_ringZBasePic->draw(drawX, drawY, w, h, false, false, false);
-    s_ringZTextPic->draw(drawX, drawY, w, h, false, false, false);
+    s_ringZPrompt.button->scale(0.9f, 0.9f);
+    s_ringZPrompt.button->paneTrans(
+        pos.x - s_ringZPrompt.button->getInitGlobalCenterPosX(),
+        pos.y - s_ringZPrompt.button->getInitGlobalCenterPosY()
+    );
+    s_ringZPrompt.button->setAlphaRate(ring->mAlphaRate);
+    s_ringZPrompt.screen->draw(0.0f, 0.0f, dComIfGp_getCurrentGrafPort());
 }
 
 void after_ring_create(ModContext*, void* args, void*, void*) {
     if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || !args) return;
-    dMenu_Ring_c* ring = mods::arg<dMenu_Ring_c*>(args, 0);
-    if (!ring || !ring->mpScreen) return;
-
-    apply_item_wheel_centering(ring);
-
-    J2DPane* anchor = ring->mpScreen->search(MULTI_CHAR('r_btn_n'));
-    if (anchor != nullptr) {
-        anchor->translate(anchor->getTranslateX() + 64.0f, anchor->getTranslateY());
-        anchor->hide();
-    }
+    create_ring_z_prompt(mods::arg<dMenu_Ring_c*>(args, 0));
 }
 
 HookAction before_ring_delete(ModContext*, void* args, void*, void*) {
+    if (args) {
+        destroy_ring_z_prompt(mods::arg<dMenu_Ring_c*>(args, 0));
+    }
     return HOOK_CONTINUE;
 }
 

@@ -5,10 +5,32 @@
 
 DEFINE_HOOK(&dMeterButton_c::_execute, MeterButtonExecuteHook);
 
+static const ResTIMG* s_origZbtnTex = nullptr;
+static const ResTIMG* s_origZbtnlTex = nullptr;
+static JUtility::TColor s_origBlack(0, 0, 0, 0);
+static JUtility::TColor s_origWhite(40, 90, 160, 255);
+static bool s_hasOrigProps = false;
+
 void update_midna_pane(dMeter2Draw_c* draw) {
     if (!g_configCustomZButtonEnabled || isNativeZButtonEngine() || draw == nullptr) return;
     J2DScreen* screen = draw->getMainScreenPtr();
     if (screen == nullptr) return;
+
+    if (!s_hasOrigProps) {
+        J2DPicture* zbtnPic = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('zbtn')));
+        if (zbtnPic && zbtnPic->getTexture(0)) {
+            s_origZbtnTex = zbtnPic->getTexture(0)->getTexInfo();
+            s_origBlack = zbtnPic->getBlack();
+            s_origWhite = zbtnPic->getWhite();
+            s_hasOrigProps = true;
+        }
+    }
+    if (!s_origZbtnlTex) {
+        J2DPicture* z_btnl = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('z_btnl')));
+        if (z_btnl && z_btnl->getTexture(0)) {
+            s_origZbtnlTex = z_btnl->getTexture(0)->getTexInfo();
+        }
+    }
 
     J2DPane* midnaPane = screen->search(MULTI_CHAR('midona_n'));
     if (midnaPane == nullptr) return;
@@ -101,18 +123,73 @@ static ResTIMG* get_dpad_left_texture() {
     return nullptr;
 }
 
-static const ResTIMG* s_origZbtnTex = nullptr;
-static const ResTIMG* s_origZbtnlTex = nullptr;
-static JUtility::TColor s_origBlack(0, 0, 0, 0);
-static JUtility::TColor s_origWhite(40, 90, 160, 255);
-static bool s_hasOrigProps = false;
-
 const ResTIMG* get_orig_z_button_texture() {
-    return s_origZbtnTex;
+    if (s_origZbtnTex != nullptr) {
+        return s_origZbtnTex;
+    }
+
+    if (g_meter2_info.getMeterClass() != nullptr && g_meter2_info.getMeterClass()->getMeterDrawPtr() != nullptr) {
+        J2DScreen* screen = g_meter2_info.getMeterClass()->getMeterDrawPtr()->getMainScreenPtr();
+        if (screen != nullptr) {
+            J2DPicture* zbtnPic = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('zbtn')));
+            if (zbtnPic && zbtnPic->getTexture(0)) {
+                s_origZbtnTex = zbtnPic->getTexture(0)->getTexInfo();
+                s_origBlack = zbtnPic->getBlack();
+                s_origWhite = zbtnPic->getWhite();
+                s_hasOrigProps = true;
+                return s_origZbtnTex;
+            }
+        }
+    }
+
+    JKRArchive* mainArc = dComIfGp_getMain2DArchive();
+    if (mainArc != nullptr) {
+        ResTIMG* tex = (ResTIMG*)mainArc->getResource('TIMG', "im_zelda_button_z_base.bti");
+        if (tex != nullptr) return tex;
+        tex = (ResTIMG*)mainArc->getResource('TIMG', "im_z_button_02.bti");
+        if (tex != nullptr) return tex;
+    }
+
+    JKRArchive* ringArc = dComIfGp_getRingResArchive();
+    if (ringArc != nullptr) {
+        ResTIMG* tex = (ResTIMG*)ringArc->getResource('TIMG', "im_zelda_button_z_base.bti");
+        if (tex != nullptr) return tex;
+        tex = (ResTIMG*)ringArc->getResource('TIMG', "im_z_button_02.bti");
+        if (tex != nullptr) return tex;
+    }
+
+    return nullptr;
 }
 
 const ResTIMG* get_orig_z_text_texture() {
-    return s_origZbtnlTex;
+    if (s_origZbtnlTex != nullptr) {
+        return s_origZbtnlTex;
+    }
+
+    if (g_meter2_info.getMeterClass() != nullptr && g_meter2_info.getMeterClass()->getMeterDrawPtr() != nullptr) {
+        J2DScreen* screen = g_meter2_info.getMeterClass()->getMeterDrawPtr()->getMainScreenPtr();
+        if (screen != nullptr) {
+            J2DPicture* z_btnl = static_cast<J2DPicture*>(screen->search(MULTI_CHAR('z_btnl')));
+            if (z_btnl && z_btnl->getTexture(0)) {
+                s_origZbtnlTex = z_btnl->getTexture(0)->getTexInfo();
+                return s_origZbtnlTex;
+            }
+        }
+    }
+
+    JKRArchive* mainArc = dComIfGp_getMain2DArchive();
+    if (mainArc != nullptr) {
+        ResTIMG* tex = (ResTIMG*)mainArc->getResource('TIMG', "im_zelda_button_z_text.bti");
+        if (tex != nullptr) return tex;
+    }
+
+    JKRArchive* ringArc = dComIfGp_getRingResArchive();
+    if (ringArc != nullptr) {
+        ResTIMG* tex = (ResTIMG*)ringArc->getResource('TIMG', "im_zelda_button_z_text.bti");
+        if (tex != nullptr) return tex;
+    }
+
+    return nullptr;
 }
 
 JUtility::TColor get_orig_z_button_black() { return s_origBlack; }

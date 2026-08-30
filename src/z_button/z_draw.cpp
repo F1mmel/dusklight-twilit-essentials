@@ -230,19 +230,29 @@ void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f32 iconW
     if (num > 999) num = 999;
     if (maxNum > 0 && num > maxNum) num = maxNum;
 
+    JKRArchive* arc = dComIfGp_getMain2DArchive();
+    if (!arc) return;
+
+    auto get_timg = [arc](int d) -> ResTIMG* {
+        if (d < 0 || d > 9) d = 0;
+        return (ResTIMG*)arc->getResource('TIMG', dMeter2Info_getNumberTextureName(d));
+    };
+
+    ResTIMG* defaultDigitTex = get_timg(0);
+    if (!defaultDigitTex) return;
+
     if (g_drawDigitPic[0] == nullptr) {
         JKRExpHeap* heap2D = dComIfGp_getExpHeap2D();
         JKRHeap* oldHeap = (heap2D != nullptr) ? mDoExt_setCurrentHeap(heap2D) : nullptr;
         for (int i = 0; i < 3; i++) {
-            g_drawDigitPic[i] = JKR_NEW J2DPicture();
+            g_drawDigitPic[i] = JKR_NEW J2DPicture(defaultDigitTex);
         }
         if (oldHeap != nullptr) {
             mDoExt_setCurrentHeap(oldHeap);
         }
     }
 
-    JKRArchive* arc = dComIfGp_getMain2DArchive();
-    if (!arc) return;
+    if (!g_drawDigitPic[0] || !g_drawDigitPic[1] || !g_drawDigitPic[2]) return;
 
     JUtility::TColor black(0, 0, 0, 0);
     JUtility::TColor white(255, 255, 255, 255);
@@ -253,11 +263,6 @@ void draw_item_count_digits(int num, int maxNum, f32 baseX, f32 baseY, f32 iconW
         black.set(30, 30, 30, 0);
         white.set(180, 180, 180, 255);
     }
-
-    auto get_timg = [arc](int d) -> ResTIMG* {
-        if (d < 0 || d > 9) d = 0;
-        return (ResTIMG*)arc->getResource('TIMG', dMeter2Info_getNumberTextureName(d));
-    };
 
     f32 digitW = 12.0f;
     f32 digitH = 12.0f;
