@@ -879,21 +879,30 @@ static void clear_ring_z_prompt_refs() {
     s_ringZPrompt.ring = nullptr;
 }
 
-static bool s_guidePosAdjusted = false;
+static bool s_guideBaseXValid = false;
+static f32 s_guideBaseX = 0.0f;
 static constexpr f32 kItemWheelPromptXOffset = -15.0f;
 
 void reset_ring_z_prompt() {
     clear_ring_z_prompt_refs();
-    s_guidePosAdjusted = false;
+    // Put the shared HIO guide X back to its pristine value. apply_item_wheel_
+    // centering() re-derives base + offset on the next menu open, so it never
+    // accumulates across fades / warps / stage loads.
+    if (s_guideBaseXValid) {
+        g_ringHIO.mGuidePosX[0] = s_guideBaseX;
+    }
 }
 
 static void apply_item_wheel_centering(dMenu_Ring_c* ring) {
     if (!g_configCustomZButtonEnabled || isNativeZButtonEngine()) return;
 
-    if (!s_guidePosAdjusted) {
-        g_ringHIO.mGuidePosX[0] += kItemWheelPromptXOffset;
-        s_guidePosAdjusted = true;
+    if (!s_guideBaseXValid) {
+        s_guideBaseX = g_ringHIO.mGuidePosX[0];   // capture the pristine value once
+        s_guideBaseXValid = true;
     }
+    // Absolute write - idempotent, so repeated calls (each item-wheel open) can't
+    // drift the guide text further left every time.
+    g_ringHIO.mGuidePosX[0] = s_guideBaseX + kItemWheelPromptXOffset;
 
     if (ring != nullptr) {
         ring->mRingGuidePosX[0] = g_ringHIO.mGuidePosX[0];
