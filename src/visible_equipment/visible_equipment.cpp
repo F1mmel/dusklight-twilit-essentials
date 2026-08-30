@@ -27,7 +27,7 @@ bool g_configVisibleEquipMirrorBow = true;
 bool g_configVisibleEquipShowBow = true;
 bool g_configVisibleEquipShowLantern = true;
 bool g_configVisibleEquipShowHorseCall = false;
-bool g_configVisibleEquipQuiverOnBelt = false;
+bool g_configVisibleEquipQuiverOnBelt = true;
 
 static J3DModel *s_customBowModel = nullptr;
 static J3DModel *s_customQuiverModel = nullptr;

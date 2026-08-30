@@ -733,7 +733,7 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
         ConfigVarDesc descEquipQuiverBelt = CONFIG_VAR_DESC_INIT;
         descEquipQuiverBelt.name = "visibleEquipmentQuiverOnBelt";
         descEquipQuiverBelt.type = CONFIG_VAR_BOOL;
-        descEquipQuiverBelt.default_bool = false;
+        descEquipQuiverBelt.default_bool = true;
         if (svc_config->register_var(mod_ctx, &descEquipQuiverBelt, &s_varVisibleEquipQuiverOnBelt) == MOD_OK) {
             svc_config->get_bool(mod_ctx, s_varVisibleEquipQuiverOnBelt, &g_configVisibleEquipQuiverOnBelt);
             svc_config->subscribe(mod_ctx, s_varVisibleEquipQuiverOnBelt, on_visible_equip_quiver_on_belt_changed, nullptr, nullptr);
