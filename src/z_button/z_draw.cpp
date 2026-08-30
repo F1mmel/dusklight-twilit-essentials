@@ -495,17 +495,14 @@ HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, void*, v
         return HOOK_CONTINUE;
     }
 
-    dMeter2Draw_c* draw = mods::arg<dMeter2Draw_c*>(args, 0);
     if (!g_configCustomZButtonEnabled || isNativeZButtonEngine()) {
-        if (draw != nullptr && draw->getMainScreenPtr() != nullptr) {
-            J2DScreen* screen = draw->getMainScreenPtr();
-            J2DPane* itemRPane = screen->search(MULTI_CHAR('r_itm_p'));
-            if (itemRPane != nullptr) itemRPane->hide();
-            J2DPane* itemRChild = screen->search(MULTI_CHAR('r_itm_pp'));
-            if (itemRChild != nullptr) itemRChild->hide();
-        }
+        // Feature off (or a native 3-slot engine owns the Z slot): stay fully
+        // passive. Previously this hid r_itm_p / r_itm_pp every frame, which
+        // blanked another Z-item mod's HUD panes (issue #7).
         return HOOK_CONTINUE;
     }
+
+    dMeter2Draw_c* draw = mods::arg<dMeter2Draw_c*>(args, 0);
 
     u32& param0 = mods::arg_ref<u32>(args, 1);
     param0 &= ~0x1000000u;

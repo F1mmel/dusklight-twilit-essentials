@@ -40,6 +40,14 @@ ModResult init_z_button(const HookService* hook_svc, const LogService* log_svc, 
         return MOD_OK;
     }
 
+    // issue #7: when the custom Z-button feature is off, install no hooks at all.
+    if (!g_configCustomZButtonEnabled) {
+        if (log_svc) {
+            log_svc->info(mod_ctx, "[ZButton] feature disabled - no Z-button hooks");
+        }
+        return MOD_OK;
+    }
+
     // HUD and Item Wheel UI hooks
     mods::hook::add_pre<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_pre);
     mods::hook::add_post<MeterButtonExecuteHook>(hook_svc, on_meter_button_execute_post);
