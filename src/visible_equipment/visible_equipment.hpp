@@ -15,6 +15,7 @@ extern bool g_configVisibleEquipMirrorBow;
 extern bool g_configVisibleEquipShowBow;
 extern bool g_configVisibleEquipShowLantern;
 extern bool g_configVisibleEquipShowHorseCall;
+extern bool g_configVisibleEquipQuiverOnBelt;
 
 ModResult init_visible_equipment(const HookService* hook_svc, ModError* err);
 void update_visible_equipment(const LogService* log_svc, ModContext* mod_ctx);

@@ -204,6 +204,7 @@ static ConfigVarHandle s_varVisibleEquipMirrorBow = 0;
 static ConfigVarHandle s_varVisibleEquipShowBow = 0;
 static ConfigVarHandle s_varVisibleEquipShowLantern = 0;
 static ConfigVarHandle s_varVisibleEquipShowHorseCall = 0;
+static ConfigVarHandle s_varVisibleEquipQuiverOnBelt = 0;
 static ConfigVarHandle s_varDamageNumbers = 0;
 static ConfigVarHandle s_varCustomZButton = 0;
 static ConfigVarHandle s_varDpadHorseCall = 0;
@@ -308,6 +309,12 @@ static void on_visible_equip_show_lantern_changed(ModContext*, ConfigVarHandle, 
 static void on_visible_equip_show_horse_call_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
     if (value) {
         g_configVisibleEquipShowHorseCall = value->bool_value;
+    }
+}
+
+static void on_visible_equip_quiver_on_belt_changed(ModContext*, ConfigVarHandle, const ConfigVarValue* value, const ConfigVarValue*, void*) {
+    if (value) {
+        g_configVisibleEquipQuiverOnBelt = value->bool_value;
     }
 }
 
@@ -505,6 +512,16 @@ static ModResult build_mod_ui_panel(ModContext*, UiElementHandle panel, void*, M
         ctrlEquipMirror.config_var = s_varVisibleEquipMirrorBow;
         ctrlEquipMirror.is_disabled = is_visible_equip_sub_disabled;
         svc_ui->pane_add_control(mod_ctx, panel, &ctrlEquipMirror, nullptr);
+    }
+
+    if (s_varVisibleEquipQuiverOnBelt != 0) {
+        UiControlDesc ctrlQuiverBelt = UI_CONTROL_DESC_INIT;
+        ctrlQuiverBelt.kind = UI_CONTROL_TOGGLE;
+        ctrlQuiverBelt.label = "Quiver on left belt";
+        ctrlQuiverBelt.binding = UI_BINDING_CONFIG_VAR;
+        ctrlQuiverBelt.config_var = s_varVisibleEquipQuiverOnBelt;
+        ctrlQuiverBelt.is_disabled = is_visible_equip_sub_disabled;
+        svc_ui->pane_add_control(mod_ctx, panel, &ctrlQuiverBelt, nullptr);
     }
 
     // Z Button
@@ -711,6 +728,15 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
         if (svc_config->register_var(mod_ctx, &descEquipHorseCall, &s_varVisibleEquipShowHorseCall) == MOD_OK) {
             svc_config->get_bool(mod_ctx, s_varVisibleEquipShowHorseCall, &g_configVisibleEquipShowHorseCall);
             svc_config->subscribe(mod_ctx, s_varVisibleEquipShowHorseCall, on_visible_equip_show_horse_call_changed, nullptr, nullptr);
+        }
+
+        ConfigVarDesc descEquipQuiverBelt = CONFIG_VAR_DESC_INIT;
+        descEquipQuiverBelt.name = "visibleEquipmentQuiverOnBelt";
+        descEquipQuiverBelt.type = CONFIG_VAR_BOOL;
+        descEquipQuiverBelt.default_bool = false;
+        if (svc_config->register_var(mod_ctx, &descEquipQuiverBelt, &s_varVisibleEquipQuiverOnBelt) == MOD_OK) {
+            svc_config->get_bool(mod_ctx, s_varVisibleEquipQuiverOnBelt, &g_configVisibleEquipQuiverOnBelt);
+            svc_config->subscribe(mod_ctx, s_varVisibleEquipQuiverOnBelt, on_visible_equip_quiver_on_belt_changed, nullptr, nullptr);
         }
 
         ConfigVarDesc descZ = CONFIG_VAR_DESC_INIT;

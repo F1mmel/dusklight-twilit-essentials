@@ -27,6 +27,7 @@ bool g_configVisibleEquipMirrorBow = true;
 bool g_configVisibleEquipShowBow = true;
 bool g_configVisibleEquipShowLantern = true;
 bool g_configVisibleEquipShowHorseCall = false;
+bool g_configVisibleEquipQuiverOnBelt = false;
 
 static J3DModel *s_customBowModel = nullptr;
 static J3DModel *s_customQuiverModel = nullptr;
@@ -417,27 +418,52 @@ static void renderQuiver(daAlink_c* alink, bool shouldShowEquipment) {
   if (quiverMtx != nullptr) {
     mDoMtx_stack_c::copy(quiverMtx);
 
-    if (s_loadedQuiverType == 3) {
-      // Level 3 Giant Quiver (100 Arrows)
-      mDoMtx_stack_c::transM(25.0f, 15.0f, 5.0f);
-      mDoMtx_stack_c::XYZrotM(degToS16(-70.0f), degToS16(0.0f), degToS16(90.0f));
+    if (g_configVisibleEquipQuiverOnBelt) {
+      if (s_loadedQuiverType == 3) {
+        // Level 3 Giant Quiver (100 Arrows) - Left belt
+        mDoMtx_stack_c::transM(25.0f, 5.0f, 23.0f);
+        mDoMtx_stack_c::XYZrotM(degToS16(0.0f), degToS16(120.0f), degToS16(135.0f));
 
-      cXyz scale(1.1f, 1.1f, 1.1f);
-      s_customQuiverModel->setBaseScale(scale);
-    } else if (s_loadedQuiverType == 2) {
-      // Level 2 Big Quiver (60 Arrows)
-      mDoMtx_stack_c::transM(25.0f, 15.0f, 5.0f);
-      mDoMtx_stack_c::XYZrotM(degToS16(-90.0f), degToS16(30.0f), degToS16(0.0f));
+        cXyz scale(0.73f, 0.73f, 0.73f);
+        s_customQuiverModel->setBaseScale(scale);
+      } else if (s_loadedQuiverType == 2) {
+        // Level 2 Big Quiver (60 Arrows) - Left belt
+        mDoMtx_stack_c::transM(25.0f, 5.0f, 23.0f);
+        mDoMtx_stack_c::XYZrotM(degToS16(0.0f), degToS16(-15.0f), degToS16(135.0f));
 
-      cXyz scale(1.1f, 1.1f, 1.1f);
-      s_customQuiverModel->setBaseScale(scale);
+        cXyz scale(0.73f, 0.73f, 0.73f);
+        s_customQuiverModel->setBaseScale(scale);
+      } else {
+        // Level 1 Standard Quiver (30 Arrows) - Left belt
+        mDoMtx_stack_c::transM(25.0f, 5.0f, 24.0f);
+        mDoMtx_stack_c::XYZrotM(degToS16(45.0f), degToS16(-95.0f), degToS16(90.0f));
+
+        cXyz scale(0.73f, 0.73f, 0.73f);
+        s_customQuiverModel->setBaseScale(scale);
+      }
     } else {
-      // Level 1 Standard Quiver (30 Arrows)
-      mDoMtx_stack_c::transM(25.0f, 15.0f, 5.0f);
-      mDoMtx_stack_c::XYZrotM(degToS16(-90.0f), degToS16(30.0f), degToS16(0.0f));
+      if (s_loadedQuiverType == 3) {
+        // Level 3 Giant Quiver (100 Arrows) - Back waist
+        mDoMtx_stack_c::transM(25.0f, 15.0f, 5.0f);
+        mDoMtx_stack_c::XYZrotM(degToS16(-70.0f), degToS16(0.0f), degToS16(90.0f));
 
-      cXyz scale(1.0f, 1.0f, 1.0f);
-      s_customQuiverModel->setBaseScale(scale);
+        cXyz scale(1.1f, 1.1f, 1.1f);
+        s_customQuiverModel->setBaseScale(scale);
+      } else if (s_loadedQuiverType == 2) {
+        // Level 2 Big Quiver (60 Arrows) - Back waist
+        mDoMtx_stack_c::transM(25.0f, 15.0f, 5.0f);
+        mDoMtx_stack_c::XYZrotM(degToS16(-90.0f), degToS16(30.0f), degToS16(0.0f));
+
+        cXyz scale(1.1f, 1.1f, 1.1f);
+        s_customQuiverModel->setBaseScale(scale);
+      } else {
+        // Level 1 Standard Quiver (30 Arrows) - Back waist
+        mDoMtx_stack_c::transM(25.0f, 15.0f, 5.0f);
+        mDoMtx_stack_c::XYZrotM(degToS16(-90.0f), degToS16(30.0f), degToS16(0.0f));
+
+        cXyz scale(1.0f, 1.0f, 1.0f);
+        s_customQuiverModel->setBaseScale(scale);
+      }
     }
 
     s_customQuiverModel->setBaseTRMtx(mDoMtx_stack_c::get());
