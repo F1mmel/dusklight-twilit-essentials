@@ -66,6 +66,20 @@ void sync_z_item_state() {
         zSlot = g_zInventorySlot;
     }
     if (zSlot == 0xFF || zSlot >= 24) {
+        g_zInventorySlot = 0xFF;
+        dComIfGs_setSelectItemIndex(2, 0xFF);
+        dComIfGs_setMixItemIndex(2, 0xFF);
+        g_dComIfG_gameInfo.play.setSelectItem(2, dItemNo_NONE_e);
+        g_inSetSelectItemIndex = false;
+        return;
+    }
+
+    u8 rawItem = dComIfGs_getItem(zSlot, false);
+    if (rawItem == 0xFF || rawItem == 0x00 || rawItem == dItemNo_NONE_e) {
+        g_zInventorySlot = 0xFF;
+        dComIfGs_setSelectItemIndex(2, 0xFF);
+        dComIfGs_setMixItemIndex(2, 0xFF);
+        g_dComIfG_gameInfo.play.setSelectItem(2, dItemNo_NONE_e);
         g_inSetSelectItemIndex = false;
         return;
     }
@@ -74,7 +88,6 @@ void sync_z_item_state() {
     u8 zMix = dComIfGs_getMixItemIndex(2);
     g_zMixSlot = zMix;
 
-    u8 rawItem = dComIfGs_getItem(zSlot, false);
     u8 combinedItem = combine_select_item(rawItem, zMix);
 
     dComIfGs_setSelectItemIndex(2, zSlot);
@@ -87,26 +100,36 @@ void sync_z_item_state() {
 void ensure_z_slot_initialized() {
     if (g_zInventorySlot == 0xFF) {
         u8 savedItemIdx = dComIfGs_getSelectItemIndex(2);
-        u8 gpItem = dComIfGp_getSelectItem(2);
-        u8 slot = find_slot_for_item(savedItemIdx);
-        if (slot == 0xFF) {
-            slot = find_slot_for_item(gpItem);
-        }
-        if (slot == 0xFF) {
-            for (u8 i = 0; i < 24; i++) {
-                u8 itm = dComIfGs_getItem(i, false);
-                if (itm != 0xFF && itm != 0x00 && itm != dItemNo_NONE_e) {
-                    slot = i;
-                    break;
-                }
+        if (savedItemIdx < 24) {
+            u8 itm = dComIfGs_getItem(savedItemIdx, false);
+            if (itm != 0xFF && itm != 0x00 && itm != dItemNo_NONE_e) {
+                g_zInventorySlot = savedItemIdx;
+                sync_z_item_state();
+                log_z_info("[ZButton] INITIAL LOAD: slot=%d item=0x%02X", g_zInventorySlot, itm);
+                return;
             }
         }
-        if (slot != 0xFF) {
-            g_zInventorySlot = slot;
-            sync_z_item_state();
-            log_z_info("[ZButton] INITIAL LOAD: slot=%d item=0x%02X", g_zInventorySlot, dComIfGs_getItem(g_zInventorySlot, false));
-        }
+        g_zInventorySlot = 0xFF;
+        g_zMixSlot = 0xFF;
     } else {
+        if (g_zInventorySlot < 24) {
+            u8 itm = dComIfGs_getItem(g_zInventorySlot, false);
+            if (itm == 0xFF || itm == 0x00 || itm == dItemNo_NONE_e) {
+                g_zInventorySlot = 0xFF;
+                g_zMixSlot = 0xFF;
+                dComIfGs_setSelectItemIndex(2, 0xFF);
+                dComIfGs_setMixItemIndex(2, 0xFF);
+                g_dComIfG_gameInfo.play.setSelectItem(2, dItemNo_NONE_e);
+                return;
+            }
+        } else {
+            g_zInventorySlot = 0xFF;
+            g_zMixSlot = 0xFF;
+            dComIfGs_setSelectItemIndex(2, 0xFF);
+            dComIfGs_setMixItemIndex(2, 0xFF);
+            g_dComIfG_gameInfo.play.setSelectItem(2, dItemNo_NONE_e);
+            return;
+        }
         sync_z_item_state();
     }
 }
@@ -115,8 +138,11 @@ u8 find_slot_for_item(u8 itemNo) {
     if (itemNo == 0xFF || itemNo == dItemNo_NONE_e) {
         return 0xFF;
     }
-    if (itemNo < 24 && dComIfGs_getItem(itemNo, false) != dItemNo_NONE_e) {
-        return itemNo;
+    if (itemNo < 24) {
+        u8 itm = dComIfGs_getItem(itemNo, false);
+        if (itm != 0xFF && itm != 0x00 && itm != dItemNo_NONE_e) {
+            return itemNo;
+        }
     }
     for (u8 slot = 0; slot < 24; slot++) {
         if (dComIfGs_getItem(slot, false) == itemNo) {

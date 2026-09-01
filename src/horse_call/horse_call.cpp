@@ -69,7 +69,7 @@ static bool isHorseCallEquipped() {
     }
 
     u8 zSlot = dComIfGs_getSelectItemIndex(2);
-    if (zSlot != 0xFF && zSlot != 0x00 && zSlot < 24) {
+    if (zSlot != 0xFF && zSlot < 24) {
         u8 zItem = dComIfGs_getItem(zSlot, false);
         if (isHorseCallItem(zItem)) {
             return true;

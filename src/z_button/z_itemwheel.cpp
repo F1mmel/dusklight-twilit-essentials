@@ -71,10 +71,17 @@ void update_ring_z_slots(dMenu_Ring_c* ring) {
         zSlot = g_zInventorySlot;
     }
     if (zSlot != 0xFF && zSlot < 24) {
-        ring->field_0x6ac = get_ring_slot_for_item(ring, zSlot);
-        ring->field_0x6b4[2] = zSlot;
-        ring->field_0x6b8[2] = dComIfGs_getMixItemIndex(2);
+        u8 itm = dComIfGs_getItem(zSlot, false);
+        if (itm != 0xFF && itm != 0x00 && itm != dItemNo_NONE_e) {
+            ring->field_0x6ac = get_ring_slot_for_item(ring, zSlot);
+            ring->field_0x6b4[2] = zSlot;
+            ring->field_0x6b8[2] = dComIfGs_getMixItemIndex(2);
+            return;
+        }
     }
+    ring->field_0x6ac = 0xFF;
+    ring->field_0x6b4[2] = 0xFF;
+    ring->field_0x6b8[2] = 0xFF;
 }
 
 HookAction on_set_active_cursor_pre(ModContext*, void* args, void*, void*) {

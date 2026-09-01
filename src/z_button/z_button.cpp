@@ -137,6 +137,10 @@ void shutdown_z_button() {
     g_cachedZMainPic = nullptr;
     g_lastLoadedZItem = 0xFF;
 
+    g_zInventorySlot = 0xFF;
+    g_zMixSlot = 0xFF;
+    g_zPendingZSlot = 0xFF;
+
     g_dpadLeftHeld = false;
     g_dpadLeftTrig = false;
 

@@ -87,6 +87,10 @@ void update_z_item_texture(dMeter2Draw_c* draw) {
     if (zItem == 0xFF || zItem == 0x00 || zItem == dItemNo_NONE_e) {
         safe_pane_hide(itemR);
         g_cachedZMainPic = nullptr;
+        if (draw != nullptr && draw->getMainScreenPtr() != nullptr) {
+            J2DPane* itemRChild = draw->getMainScreenPtr()->search(MULTI_CHAR('r_itm_pp'));
+            if (itemRChild != nullptr) itemRChild->hide();
+        }
         return;
     }
 
@@ -465,6 +469,10 @@ void on_draw_button_z_post(ModContext*, void* args, void*, void*) {
     if (zItem == 0xFF || zItem == 0x00 || zItem == dItemNo_NONE_e) {
         CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
         safe_pane_hide(itemR);
+        if (draw->getMainScreenPtr() != nullptr) {
+            J2DPane* itemRChild = draw->getMainScreenPtr()->search(MULTI_CHAR('r_itm_pp'));
+            if (itemRChild != nullptr) itemRChild->hide();
+        }
         return;
     }
 
@@ -574,6 +582,9 @@ HookAction on_set_button_icon_midona_alpha_pre(ModContext*, void* args, void*, v
                         itemRChild->hide();
                     }
                 }
+            } else {
+                if (itemRPane != nullptr) itemRPane->hide();
+                if (itemRChild != nullptr) itemRChild->hide();
             }
         }
     }
@@ -609,19 +620,32 @@ void on_set_button_icon_midona_alpha_post(ModContext*, void* args, void*, void*)
                 rbtn->show();
                 rbtn->setAlpha(zBaseAlpha);
             }
-            J2DPane* itemRPane = screen->search(MULTI_CHAR('r_itm_p'));
-            if (itemRPane != nullptr) {
-                itemRPane->show();
-                itemRPane->setAlpha(zIconAlpha);
-            }
-            J2DPane* itemRChild = screen->search(MULTI_CHAR('r_itm_pp'));
-            if (itemRChild != nullptr) {
-                if (g_zHasSecondLayer) {
-                    itemRChild->show();
-                    itemRChild->setAlpha(zIconAlpha);
-                } else {
-                    itemRChild->hide();
+
+            u8 zItem = dComIfGp_getSelectItem(2);
+            if (zItem == 0xFF || zItem == 0x00 || zItem == dItemNo_NONE_e) {
+                if (g_zInventorySlot != 0xFF && g_zInventorySlot < 24) {
+                    zItem = dComIfGs_getItem(g_zInventorySlot, false);
                 }
+            }
+
+            J2DPane* itemRPane = screen->search(MULTI_CHAR('r_itm_p'));
+            J2DPane* itemRChild = screen->search(MULTI_CHAR('r_itm_pp'));
+            if (zItem != 0xFF && zItem != 0x00 && zItem != dItemNo_NONE_e) {
+                if (itemRPane != nullptr) {
+                    itemRPane->show();
+                    itemRPane->setAlpha(zIconAlpha);
+                }
+                if (itemRChild != nullptr) {
+                    if (g_zHasSecondLayer) {
+                        itemRChild->show();
+                        itemRChild->setAlpha(zIconAlpha);
+                    } else {
+                        itemRChild->hide();
+                    }
+                }
+            } else {
+                if (itemRPane != nullptr) itemRPane->hide();
+                if (itemRChild != nullptr) itemRChild->hide();
             }
         }
     }
@@ -664,7 +688,14 @@ HookAction on_change_texture_item_xy_pre(ModContext*, void* args, void*, void*) 
         return HOOK_CONTINUE;
     }
 
-    if (isWolfPlayer()) {
+    u8 zItem = dComIfGp_getSelectItem(2);
+    if (zItem == 0xFF || zItem == 0x00 || zItem == dItemNo_NONE_e) {
+        if (g_zInventorySlot != 0xFF && g_zInventorySlot < 24) {
+            zItem = dComIfGs_getItem(g_zInventorySlot, false);
+        }
+    }
+
+    if (isWolfPlayer() || zItem == 0xFF || zItem == 0x00 || zItem == dItemNo_NONE_e) {
         CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
         safe_pane_hide(itemR);
         return HOOK_SKIP_ORIGINAL;
@@ -690,15 +721,17 @@ void on_move_button_xy_post(ModContext*, void* args, void*, void*) {
         return;
     }
 
-    u8 zSlot = g_zInventorySlot;
+    ensure_z_slot_initialized();
 
-    if (zSlot == 0xFF) {
-        zSlot = find_slot_for_item(dComIfGs_getSelectItemIndex(2));
-        g_zInventorySlot = zSlot;
+    u8 zItem = dComIfGp_getSelectItem(2);
+    if (zItem == 0xFF || zItem == 0x00 || zItem == dItemNo_NONE_e) {
+        if (g_zInventorySlot != 0xFF && g_zInventorySlot < 24) {
+            zItem = dComIfGs_getItem(g_zInventorySlot, false);
+        }
     }
 
     CPaneMgr* itemR = dMeter2Info_getMeterItemPanePtr(2);
-    if (zSlot != 0xFF) {
+    if (zItem != 0xFF && zItem != 0x00 && zItem != dItemNo_NONE_e && !isWolfPlayer()) {
         safe_pane_show(itemR);
     } else {
         safe_pane_hide(itemR);

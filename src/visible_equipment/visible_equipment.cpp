@@ -156,8 +156,8 @@ static bool checkShouldShowBow() {
   u8 slot0 = dComIfGp_getSelectItem(0);
   u8 slot1 = dComIfGp_getSelectItem(1);
   u8 zSlot = dComIfGs_getSelectItemIndex(2);
-  u8 slot2 = (zSlot != 0xFF && zSlot != 0x00) ? dComIfGs_getItem(zSlot, false)
-                                              : dComIfGp_getSelectItem(2);
+  u8 slot2 = (zSlot != 0xFF && zSlot < 24) ? dComIfGs_getItem(zSlot, false)
+                                           : dComIfGp_getSelectItem(2);
   bool bowEquippedOnButton =
       (slot0 == dItemNo_BOW_e || slot1 == dItemNo_BOW_e ||
        slot2 == dItemNo_BOW_e || slot0 == 0x43 || slot1 == 0x43 ||
@@ -177,8 +177,8 @@ static bool checkShouldShowLantern() {
   u8 slot0 = dComIfGp_getSelectItem(0);
   u8 slot1 = dComIfGp_getSelectItem(1);
   u8 zSlot = dComIfGs_getSelectItemIndex(2);
-  u8 slot2 = (zSlot != 0xFF && zSlot != 0x00) ? dComIfGs_getItem(zSlot, false)
-                                              : dComIfGp_getSelectItem(2);
+  u8 slot2 = (zSlot != 0xFF && zSlot < 24) ? dComIfGs_getItem(zSlot, false)
+                                           : dComIfGp_getSelectItem(2);
   return (slot0 == dItemNo_KANTERA_e || slot1 == dItemNo_KANTERA_e ||
           slot2 == dItemNo_KANTERA_e || slot0 == 0x48 || slot1 == 0x48 ||
           slot2 == 0x48);
@@ -196,8 +196,8 @@ static bool checkShouldShowHorseCall() {
   u8 slot0 = dComIfGp_getSelectItem(0);
   u8 slot1 = dComIfGp_getSelectItem(1);
   u8 zSlot = dComIfGs_getSelectItemIndex(2);
-  u8 slot2 = (zSlot != 0xFF && zSlot != 0x00) ? dComIfGs_getItem(zSlot, false)
-                                              : dComIfGp_getSelectItem(2);
+  u8 slot2 = (zSlot != 0xFF && zSlot < 24) ? dComIfGs_getItem(zSlot, false)
+                                           : dComIfGp_getSelectItem(2);
   return (slot0 == dItemNo_HORSE_FLUTE_e || slot1 == dItemNo_HORSE_FLUTE_e ||
           slot2 == dItemNo_HORSE_FLUTE_e || slot0 == 0x4F || slot1 == 0x4F ||
           slot2 == 0x4F || slot0 == 0x84 || slot1 == 0x84 || slot2 == 0x84);
