@@ -3,7 +3,7 @@ project(dusklight_twilit_essentials CXX)
 
 # The Dusklight version to build against: a release tag (e.g. "v1.5.0") or a commit SHA.
 if (NOT DUSKLIGHT_VERSION)
-    set(DUSKLIGHT_VERSION "d281c34a65568ee7be2319985f3a290c0ef65abc")
+    set(DUSKLIGHT_VERSION "6eac903b137404a7c6103ed534ab5d7b65bcdcfd")
 endif ()
 
 # Fetches the Dusklight sources into ./dusklight and provides DUSKLIGHT_DIR.
